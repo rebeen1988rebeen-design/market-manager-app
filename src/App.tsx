@@ -86,12 +86,12 @@ export default function App() {
         ]);
 
         if (dbSettings) setSettings(dbSettings);
-        if (dbProducts && dbProducts.length > 0) setProducts(dbProducts);
-        if (dbCategories && dbCategories.length > 0) setCategories(dbCategories);
-        if (dbCustomers && dbCustomers.length > 0) setCustomers(dbCustomers);
-        if (dbTransactions && dbTransactions.length > 0) setTransactions(dbTransactions);
-        if (dbSuppliers && dbSuppliers.length > 0) setSuppliers(dbSuppliers);
-        if (dbInvoices && dbInvoices.length > 0) setInvoices(dbInvoices);
+        if (dbProducts) setProducts(dbProducts);
+        if (dbCategories) setCategories(dbCategories);
+        if (dbCustomers) setCustomers(dbCustomers);
+        if (dbTransactions) setTransactions(dbTransactions);
+        if (dbSuppliers) setSuppliers(dbSuppliers);
+        if (dbInvoices) setInvoices(dbInvoices);
       } catch (error) {
         console.error('Error fetching data from Supabase:', error);
       } finally {
@@ -117,44 +117,68 @@ export default function App() {
 
   // Global manual save & JSON backup file export trigger
   const handleSaveAllData = async () => {
+    setIsSyncing(true);
     try {
-      await supabaseService.saveSettings(settings);
-    } catch (err) {
-      console.warn('Backup save warning:', err);
+      await supabaseService.saveAllData({
+        products,
+        categories,
+        customers,
+        transactions,
+        suppliers,
+        invoices,
+        settings,
+      });
+
+      const backupData = {
+        app: 'MarketManagementSystem',
+        exportDate: new Date().toISOString(),
+        lang,
+        currency,
+        settings,
+        products,
+        categories,
+        customers,
+        transactions,
+        suppliers,
+        invoices,
+      };
+
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', dataStr);
+      downloadAnchor.setAttribute('download', `market-backup-${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+
+      setShowSaveToast(true);
+      setTimeout(() => {
+        setShowSaveToast(false);
+      }, 4000);
+    } catch (err: any) {
+      console.error('Error saving data to Supabase:', err);
+      alert(
+        lang === 'ku'
+          ? `هەڵە لە پاراستنی داتاکان لە داتابەیس: ${err?.message || 'تکایە هێڵی ئینتەرنێتەکەت بپشکنە'}`
+          : `Error saving data to database: ${err?.message || 'Please check your internet connection'}`
+      );
+    } finally {
+      setIsSyncing(false);
     }
-
-    const backupData = {
-      app: 'MarketManagementSystem',
-      exportDate: new Date().toISOString(),
-      lang,
-      currency,
-      settings,
-      products,
-      categories,
-      customers,
-      transactions,
-      suppliers,
-      invoices,
-    };
-
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `market-backup-${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-
-    setShowSaveToast(true);
-    setTimeout(() => {
-      setShowSaveToast(false);
-    }, 4000);
   };
 
   // Save settings handler
-  const handleSaveSettings = (newSettings: StoreSettings) => {
+  const handleSaveSettings = async (newSettings: StoreSettings) => {
     setSettings(newSettings);
-    supabaseService.saveSettings(newSettings);
+    try {
+      await supabaseService.saveSettings(newSettings);
+    } catch (err: any) {
+      alert(
+        lang === 'ku'
+          ? `هەڵە لە خەزنکردنی ڕێکخستنەکان: ${err?.message || ''}`
+          : `Error saving settings: ${err?.message || ''}`
+      );
+    }
   };
 
   // Restore backup from JSON file
@@ -162,30 +186,50 @@ export default function App() {
     const fileReader = new FileReader();
     if (e.target.files && e.target.files[0]) {
       fileReader.readAsText(e.target.files[0], 'UTF-8');
-      fileReader.onload = (event) => {
+      fileReader.onload = async (event) => {
         try {
           const parsed = JSON.parse(event.target?.result as string);
           if (parsed) {
-            if (parsed.products) {
-              setProducts(parsed.products);
-              parsed.products.forEach((p: Product) => supabaseService.addProduct(p));
-            }
-            if (parsed.customers) {
-              setCustomers(parsed.customers);
-              parsed.customers.forEach((c: Customer) => supabaseService.addCustomer(c));
-            }
-            if (parsed.suppliers) {
-              setSuppliers(parsed.suppliers);
-              parsed.suppliers.forEach((s: Supplier) => supabaseService.addSupplier(s));
-            }
-            if (parsed.settings) {
-              setSettings(parsed.settings);
-              supabaseService.saveSettings(parsed.settings);
-            }
+            const restoredProducts = parsed.products || products;
+            const restoredCategories = parsed.categories || categories;
+            const restoredCustomers = parsed.customers || customers;
+            const restoredTransactions = parsed.transactions || transactions;
+            const restoredSuppliers = parsed.suppliers || suppliers;
+            const restoredInvoices = parsed.invoices || invoices;
+            const restoredSettings = parsed.settings || settings;
+
+            setProducts(restoredProducts);
+            setCategories(restoredCategories);
+            setCustomers(restoredCustomers);
+            setTransactions(restoredTransactions);
+            setSuppliers(restoredSuppliers);
+            setInvoices(restoredInvoices);
+            setSettings(restoredSettings);
+
             if (parsed.lang) setLang(parsed.lang);
             if (parsed.currency) setCurrency(parsed.currency);
 
-            alert(getTranslation(lang, 'dataRestoredSuccessfully'));
+            setIsSyncing(true);
+            try {
+              await supabaseService.saveAllData({
+                products: restoredProducts,
+                categories: restoredCategories,
+                customers: restoredCustomers,
+                transactions: restoredTransactions,
+                suppliers: restoredSuppliers,
+                invoices: restoredInvoices,
+                settings: restoredSettings,
+              });
+              alert(getTranslation(lang, 'dataRestoredSuccessfully'));
+            } catch (err: any) {
+              alert(
+                lang === 'ku'
+                  ? `داتاکان لەپەرگە هێنران بەڵام لە سۆپابەیس خەزن نەبوون: ${err?.message || ''}`
+                  : `Data restored locally but failed to save to Supabase: ${err?.message || ''}`
+              );
+            } finally {
+              setIsSyncing(false);
+            }
           }
         } catch {
           alert(getTranslation(lang, 'invalidBackupFile'));

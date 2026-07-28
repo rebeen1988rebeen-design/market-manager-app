@@ -148,40 +148,34 @@ export const supabaseService = {
   // Check connection & seed initial data if DB is empty
   async initializeDatabase() {
     try {
-      // 1. Check categories
-      const { data: catData, error: catErr } = await supabase.from('categories').select('*');
+      const { data: catData, error: catErr } = await supabase.from('categories').select('id');
       if (!catErr && (!catData || catData.length === 0)) {
-        await supabase.from('categories').insert(initialCategories.map(categoryToDb));
+        await supabase.from('categories').upsert(initialCategories.map(categoryToDb));
       }
 
-      // 2. Check products
-      const { data: prodData, error: prodErr } = await supabase.from('products').select('*');
+      const { data: prodData, error: prodErr } = await supabase.from('products').select('id');
       if (!prodErr && (!prodData || prodData.length === 0)) {
-        await supabase.from('products').insert(initialProducts.map(productToDb));
+        await supabase.from('products').upsert(initialProducts.map(productToDb));
       }
 
-      // 3. Check customers
-      const { data: custData, error: custErr } = await supabase.from('customers').select('*');
+      const { data: custData, error: custErr } = await supabase.from('customers').select('id');
       if (!custErr && (!custData || custData.length === 0)) {
-        await supabase.from('customers').insert(initialCustomers.map(customerToDb));
+        await supabase.from('customers').upsert(initialCustomers.map(customerToDb));
       }
 
-      // 4. Check transactions
-      const { data: txData, error: txErr } = await supabase.from('customer_transactions').select('*');
+      const { data: txData, error: txErr } = await supabase.from('customer_transactions').select('id');
       if (!txErr && (!txData || txData.length === 0)) {
-        await supabase.from('customer_transactions').insert(initialTransactions.map(transactionToDb));
+        await supabase.from('customer_transactions').upsert(initialTransactions.map(transactionToDb));
       }
 
-      // 5. Check suppliers
-      const { data: suppData, error: suppErr } = await supabase.from('suppliers').select('*');
+      const { data: suppData, error: suppErr } = await supabase.from('suppliers').select('id');
       if (!suppErr && (!suppData || suppData.length === 0)) {
-        await supabase.from('suppliers').insert(initialSuppliers.map(supplierToDb));
+        await supabase.from('suppliers').upsert(initialSuppliers.map(supplierToDb));
       }
 
-      // 6. Check settings
-      const { data: settData, error: settErr } = await supabase.from('store_settings').select('*').eq('id', 'default');
+      const { data: settData, error: settErr } = await supabase.from('store_settings').select('id').eq('id', 'default');
       if (!settErr && (!settData || settData.length === 0)) {
-        await supabase.from('store_settings').insert(settingsToDb(initialSettings));
+        await supabase.from('store_settings').upsert(settingsToDb(initialSettings));
       }
     } catch (err) {
       console.warn('Supabase DB seed check note:', err);
@@ -192,29 +186,44 @@ export const supabaseService = {
   async getSettings(): Promise<StoreSettings> {
     try {
       const { data, error } = await supabase.from('store_settings').select('*').eq('id', 'default').single();
-      if (error || !data) return initialSettings;
-      return dbToSettings(data);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_settings_cache');
+        return cached ? JSON.parse(cached) : initialSettings;
+      }
+      const settings = dbToSettings(data);
+      localStorage.setItem('market_settings_cache', JSON.stringify(settings));
+      return settings;
     } catch {
-      return initialSettings;
+      const cached = localStorage.getItem('market_settings_cache');
+      return cached ? JSON.parse(cached) : initialSettings;
     }
   },
 
   async saveSettings(settings: StoreSettings): Promise<void> {
     try {
-      await supabase.from('store_settings').upsert(settingsToDb(settings));
-    } catch (err) {
-      console.error('Failed to save settings to Supabase:', err);
+      const { error } = await supabase.from('store_settings').upsert(settingsToDb(settings));
+      if (error) console.warn('Supabase store_settings save note:', error.message || error);
+    } catch (err: any) {
+      console.warn('Note on saveSettings:', err?.message || err);
     }
+    localStorage.setItem('market_settings_cache', JSON.stringify(settings));
   },
 
   // CATEGORIES
   async getCategories(): Promise<Category[]> {
     try {
       const { data, error } = await supabase.from('categories').select('*');
-      if (error || !data || data.length === 0) return initialCategories;
-      return data.map(dbToCategory);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_categories_cache');
+        return cached ? JSON.parse(cached) : initialCategories;
+      }
+      if (data.length === 0) return initialCategories;
+      const categories = data.map(dbToCategory);
+      localStorage.setItem('market_categories_cache', JSON.stringify(categories));
+      return categories;
     } catch {
-      return initialCategories;
+      const cached = localStorage.getItem('market_categories_cache');
+      return cached ? JSON.parse(cached) : initialCategories;
     }
   },
 
@@ -222,48 +231,45 @@ export const supabaseService = {
   async getProducts(): Promise<Product[]> {
     try {
       const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
-      if (error || !data || data.length === 0) return initialProducts;
-      return data.map(dbToProduct);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_products_cache');
+        return cached ? JSON.parse(cached) : initialProducts;
+      }
+      if (data.length === 0) return initialProducts;
+      const products = data.map(dbToProduct);
+      localStorage.setItem('market_products_cache', JSON.stringify(products));
+      return products;
     } catch {
-      return initialProducts;
+      const cached = localStorage.getItem('market_products_cache');
+      return cached ? JSON.parse(cached) : initialProducts;
     }
   },
 
   async addProduct(product: Product): Promise<void> {
-    try {
-      const { error } = await supabase.from('products').upsert(productToDb(product));
-      if (error) {
-        console.warn('Supabase product save notice:', error.message || error);
-      }
-    } catch (err: any) {
-      console.warn('Note on adding product to Supabase:', err?.message || err);
+    const { error } = await supabase.from('products').upsert(productToDb(product));
+    if (error) {
+      console.warn('Supabase product save note:', error.message || error);
     }
   },
 
   async updateProduct(product: Product): Promise<void> {
-    try {
-      const { error } = await supabase.from('products').upsert(productToDb(product));
-      if (error) console.warn('Supabase product update notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on updating product in Supabase:', err?.message || err);
+    const { error } = await supabase.from('products').upsert(productToDb(product));
+    if (error) {
+      console.warn('Supabase product update note:', error.message || error);
     }
   },
 
   async deleteProduct(id: string): Promise<void> {
-    try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) console.warn('Supabase product delete notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on deleting product from Supabase:', err?.message || err);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      console.warn('Supabase product delete note:', error.message || error);
     }
   },
 
   async updateStock(productId: string, newStock: number): Promise<void> {
-    try {
-      const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
-      if (error) console.warn('Supabase stock update notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on updating stock in Supabase:', err?.message || err);
+    const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
+    if (error) {
+      console.warn('Supabase stock update note:', error.message || error);
     }
   },
 
@@ -271,65 +277,65 @@ export const supabaseService = {
   async getCustomers(): Promise<Customer[]> {
     try {
       const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
-      if (error || !data || data.length === 0) return initialCustomers;
-      return data.map(dbToCustomer);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_customers_cache');
+        return cached ? JSON.parse(cached) : initialCustomers;
+      }
+      if (data.length === 0) return initialCustomers;
+      const customers = data.map(dbToCustomer);
+      localStorage.setItem('market_customers_cache', JSON.stringify(customers));
+      return customers;
     } catch {
-      return initialCustomers;
+      const cached = localStorage.getItem('market_customers_cache');
+      return cached ? JSON.parse(cached) : initialCustomers;
     }
   },
 
   async addCustomer(customer: Customer): Promise<void> {
-    try {
-      const { error } = await supabase.from('customers').upsert(customerToDb(customer));
-      if (error) console.warn('Supabase customer save notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on adding customer to Supabase:', err?.message || err);
+    const { error } = await supabase.from('customers').upsert(customerToDb(customer));
+    if (error) {
+      console.warn('Supabase customer save note:', error.message || error);
     }
   },
 
   async updateCustomer(customer: Customer): Promise<void> {
-    try {
-      const { error } = await supabase.from('customers').upsert(customerToDb(customer));
-      if (error) console.warn('Supabase customer update notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on updating customer in Supabase:', err?.message || err);
+    const { error } = await supabase.from('customers').upsert(customerToDb(customer));
+    if (error) {
+      console.warn('Supabase customer update note:', error.message || error);
     }
   },
 
   async deleteCustomer(id: string): Promise<void> {
-    try {
-      await supabase.from('customer_transactions').delete().eq('customer_id', id);
-      await supabase.from('customers').delete().eq('id', id);
-    } catch (err: any) {
-      console.warn('Note on deleting customer from Supabase:', err?.message || err);
-    }
+    await supabase.from('customer_transactions').delete().eq('customer_id', id);
+    await supabase.from('customers').delete().eq('id', id);
   },
 
   async updateCustomerDebt(customerId: string, newDebtBalance: number): Promise<void> {
-    try {
-      await supabase.from('customers').update({ debt_balance: newDebtBalance }).eq('id', customerId);
-    } catch (err: any) {
-      console.warn('Note on updating customer debt in Supabase:', err?.message || err);
-    }
+    await supabase.from('customers').update({ debt_balance: newDebtBalance }).eq('id', customerId);
   },
 
   // TRANSACTIONS
   async getTransactions(): Promise<CustomerTransaction[]> {
     try {
       const { data, error } = await supabase.from('customer_transactions').select('*').order('created_at', { ascending: false });
-      if (error || !data || data.length === 0) return initialTransactions;
-      return data.map(dbToTransaction);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_transactions_cache');
+        return cached ? JSON.parse(cached) : initialTransactions;
+      }
+      if (data.length === 0) return initialTransactions;
+      const transactions = data.map(dbToTransaction);
+      localStorage.setItem('market_transactions_cache', JSON.stringify(transactions));
+      return transactions;
     } catch {
-      return initialTransactions;
+      const cached = localStorage.getItem('market_transactions_cache');
+      return cached ? JSON.parse(cached) : initialTransactions;
     }
   },
 
   async addTransaction(tx: CustomerTransaction): Promise<void> {
-    try {
-      const { error } = await supabase.from('customer_transactions').upsert(transactionToDb(tx));
-      if (error) console.warn('Supabase transaction save notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on adding transaction to Supabase:', err?.message || err);
+    const { error } = await supabase.from('customer_transactions').upsert(transactionToDb(tx));
+    if (error) {
+      console.warn('Supabase transaction save note:', error.message || error);
     }
   },
 
@@ -337,49 +343,51 @@ export const supabaseService = {
   async getSuppliers(): Promise<Supplier[]> {
     try {
       const { data, error } = await supabase.from('suppliers').select('*');
-      if (error || !data || data.length === 0) return initialSuppliers;
-      return data.map(dbToSupplier);
+      if (error || !data) {
+        const cached = localStorage.getItem('market_suppliers_cache');
+        return cached ? JSON.parse(cached) : initialSuppliers;
+      }
+      if (data.length === 0) return initialSuppliers;
+      const suppliers = data.map(dbToSupplier);
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(suppliers));
+      return suppliers;
     } catch {
-      return initialSuppliers;
+      const cached = localStorage.getItem('market_suppliers_cache');
+      return cached ? JSON.parse(cached) : initialSuppliers;
     }
   },
 
   async addSupplier(supplier: Supplier): Promise<void> {
-    try {
-      const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
-      if (error) console.warn('Supabase supplier save notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on adding supplier to Supabase:', err?.message || err);
+    const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
+    if (error) {
+      console.warn('Supabase supplier save note:', error.message || error);
     }
   },
 
   async updateSupplier(supplier: Supplier): Promise<void> {
-    try {
-      const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
-      if (error) console.warn('Supabase supplier update notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on updating supplier in Supabase:', err?.message || err);
+    const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
+    if (error) {
+      console.warn('Supabase supplier update note:', error.message || error);
     }
   },
 
   async deleteSupplier(id: string): Promise<void> {
-    try {
-      const { error } = await supabase.from('suppliers').delete().eq('id', id);
-      if (error) console.warn('Supabase supplier delete notice:', error.message || error);
-    } catch (err: any) {
-      console.warn('Note on deleting supplier from Supabase:', err?.message || err);
-    }
+    await supabase.from('suppliers').delete().eq('id', id);
   },
 
   // SALES & INVOICES
   async getInvoices(): Promise<SaleInvoice[]> {
     try {
       const { data: sales, error: salesErr } = await supabase.from('sales').select('*').order('created_at', { ascending: false });
-      if (salesErr || !sales || sales.length === 0) return initialInvoices;
+      if (salesErr || !sales) {
+        const cached = localStorage.getItem('market_invoices_cache');
+        return cached ? JSON.parse(cached) : initialInvoices;
+      }
+      if (sales.length === 0) return [];
 
-      const { data: items, error: itemsErr } = await supabase.from('sale_items').select('*');
+      const { data: items } = await supabase.from('sale_items').select('*');
 
-      return sales.map((sale: any) => {
+      const invoices = sales.map((sale: any) => {
         const saleItemsRows = (items || []).filter((item: any) => item.sale_id === sale.id);
         const cartItems: CartItem[] = saleItemsRows.map((item: any) => ({
           product: {
@@ -413,49 +421,180 @@ export const supabaseService = {
           createdAt: sale.created_at || new Date().toISOString(),
         };
       });
+
+      localStorage.setItem('market_invoices_cache', JSON.stringify(invoices));
+      return invoices;
     } catch {
-      return initialInvoices;
+      const cached = localStorage.getItem('market_invoices_cache');
+      return cached ? JSON.parse(cached) : initialInvoices;
     }
   },
 
   async addInvoice(invoice: SaleInvoice): Promise<void> {
+    const { error: saleErr } = await supabase.from('sales').insert({
+      id: invoice.id,
+      invoice_number: invoice.invoiceNumber,
+      subtotal: invoice.subtotal,
+      discount: invoice.discount,
+      total_amount: invoice.totalAmount,
+      payment_type: invoice.paymentType,
+      customer_id: invoice.customerId || null,
+      customer_name: invoice.customerName || null,
+      created_at: invoice.createdAt,
+    });
+
+    if (saleErr) {
+      console.warn('Supabase sale invoice save note:', saleErr.message || saleErr);
+      return;
+    }
+
+    if (invoice.items && invoice.items.length > 0) {
+      const itemRows = invoice.items.map((item, index) => ({
+        id: `${invoice.id}-item-${index}`,
+        sale_id: invoice.id,
+        product_id: item.product.id,
+        product_name_ku: item.product.nameKu,
+        product_name_en: item.product.nameEn,
+        barcode: item.product.barcode,
+        quantity: item.quantity,
+        price: item.price,
+        item_discount: item.itemDiscount || 0,
+        total: item.total,
+      }));
+
+      const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows);
+      if (itemsErr) console.warn('Supabase sale items save note:', itemsErr.message || itemsErr);
+    }
+  },
+
+  // COMPREHENSIVE SAVE ALL DATA
+  async saveAllData(data: {
+    products: Product[];
+    categories: Category[];
+    customers: Customer[];
+    transactions: CustomerTransaction[];
+    suppliers: Supplier[];
+    invoices: SaleInvoice[];
+    settings: StoreSettings;
+  }): Promise<void> {
+    // Save caches to localStorage immediately for guaranteed offline and PWA persistence
     try {
-      const { error: saleErr } = await supabase.from('sales').insert({
-        id: invoice.id,
-        invoice_number: invoice.invoiceNumber,
-        subtotal: invoice.subtotal,
-        discount: invoice.discount,
-        total_amount: invoice.totalAmount,
-        payment_type: invoice.paymentType,
-        customer_id: invoice.customerId || null,
-        customer_name: invoice.customerName || null,
-        created_at: invoice.createdAt,
-      });
+      localStorage.setItem('market_products_cache', JSON.stringify(data.products));
+      localStorage.setItem('market_categories_cache', JSON.stringify(data.categories));
+      localStorage.setItem('market_customers_cache', JSON.stringify(data.customers));
+      localStorage.setItem('market_transactions_cache', JSON.stringify(data.transactions));
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(data.suppliers));
+      localStorage.setItem('market_invoices_cache', JSON.stringify(data.invoices));
+      localStorage.setItem('market_settings_cache', JSON.stringify(data.settings));
+    } catch (e) {
+      console.warn('LocalStorage save warning:', e);
+    }
 
-      if (saleErr) {
-        console.warn('Supabase sale invoice save notice:', saleErr.message || saleErr);
-        return;
-      }
+    // 1. Settings
+    try {
+      const { error: settErr } = await supabase.from('store_settings').upsert(settingsToDb(data.settings));
+      if (settErr) console.warn('Supabase store_settings save note:', settErr.message);
+    } catch (err: any) {
+      console.warn('Note on store_settings save:', err?.message || err);
+    }
 
-      if (invoice.items && invoice.items.length > 0) {
-        const itemRows = invoice.items.map((item, index) => ({
-          id: `${invoice.id}-item-${index}`,
-          sale_id: invoice.id,
-          product_id: item.product.id,
-          product_name_ku: item.product.nameKu,
-          product_name_en: item.product.nameEn,
-          barcode: item.product.barcode,
-          quantity: item.quantity,
-          price: item.price,
-          item_discount: item.itemDiscount || 0,
-          total: item.total,
-        }));
-
-        const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows);
-        if (itemsErr) console.warn('Supabase sale items save notice:', itemsErr.message || itemsErr);
+    // 2. Categories
+    try {
+      if (data.categories && data.categories.length > 0) {
+        const { error: catErr } = await supabase.from('categories').upsert(data.categories.map(categoryToDb));
+        if (catErr) console.warn('Supabase categories save note:', catErr.message);
       }
     } catch (err: any) {
-      console.warn('Note on adding sale invoice to Supabase:', err?.message || err);
+      console.warn('Note on categories save:', err?.message || err);
+    }
+
+    // 3. Products
+    try {
+      if (data.products && data.products.length > 0) {
+        const { error: prodErr } = await supabase.from('products').upsert(data.products.map(productToDb));
+        if (prodErr) console.warn('Supabase products save note:', prodErr.message);
+      }
+    } catch (err: any) {
+      console.warn('Note on products save:', err?.message || err);
+    }
+
+    // 4. Suppliers
+    try {
+      if (data.suppliers && data.suppliers.length > 0) {
+        const { error: suppErr } = await supabase.from('suppliers').upsert(data.suppliers.map(supplierToDb));
+        if (suppErr) console.warn('Supabase suppliers save note:', suppErr.message);
+      }
+    } catch (err: any) {
+      console.warn('Note on suppliers save:', err?.message || err);
+    }
+
+    // 5. Customers
+    try {
+      if (data.customers && data.customers.length > 0) {
+        const { error: custErr } = await supabase.from('customers').upsert(data.customers.map(customerToDb));
+        if (custErr) console.warn('Supabase customers save note:', custErr.message);
+      }
+    } catch (err: any) {
+      console.warn('Note on customers save:', err?.message || err);
+    }
+
+    // 6. Transactions
+    try {
+      if (data.transactions && data.transactions.length > 0) {
+        const { error: txErr } = await supabase.from('customer_transactions').upsert(data.transactions.map(transactionToDb));
+        if (txErr) console.warn('Supabase transactions save note:', txErr.message);
+      }
+    } catch (err: any) {
+      console.warn('Note on transactions save:', err?.message || err);
+    }
+
+    // 7. Invoices & Sale Items
+    try {
+      if (data.invoices && data.invoices.length > 0) {
+        const saleRows = data.invoices.map((inv) => ({
+          id: inv.id,
+          invoice_number: inv.invoiceNumber,
+          subtotal: inv.subtotal,
+          discount: inv.discount,
+          total_amount: inv.totalAmount,
+          payment_type: inv.paymentType,
+          customer_id: inv.customerId || null,
+          customer_name: inv.customerName || null,
+          created_at: inv.createdAt,
+        }));
+
+        const { error: saleErr } = await supabase.from('sales').upsert(saleRows);
+        if (saleErr) {
+          console.warn('Supabase sales save note:', saleErr.message);
+        } else {
+          const itemRows: any[] = [];
+          data.invoices.forEach((inv) => {
+            if (inv.items && inv.items.length > 0) {
+              inv.items.forEach((item, idx) => {
+                itemRows.push({
+                  id: `${inv.id}-item-${idx}`,
+                  sale_id: inv.id,
+                  product_id: item.product.id,
+                  product_name_ku: item.product.nameKu,
+                  product_name_en: item.product.nameEn,
+                  barcode: item.product.barcode,
+                  quantity: item.quantity,
+                  price: item.price,
+                  item_discount: item.itemDiscount || 0,
+                  total: item.total,
+                });
+              });
+            }
+          });
+
+          if (itemRows.length > 0) {
+            const { error: itemsErr } = await supabase.from('sale_items').upsert(itemRows);
+            if (itemsErr) console.warn('Supabase sale_items save note:', itemsErr.message);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Note on sales save:', err?.message || err);
     }
   },
 };
