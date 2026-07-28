@@ -52,14 +52,35 @@ export default function App() {
   const [showSaveToast, setShowSaveToast] = useState<boolean>(false);
   const [isSyncing, setIsSyncing] = useState<boolean>(true);
 
-  // States initialized from defaults, then loaded from Supabase DB
-  const [settings, setSettings] = useState<StoreSettings>(initialSettings);
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
-  const [transactions, setTransactions] = useState<CustomerTransaction[]>(initialTransactions);
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [invoices, setInvoices] = useState<SaleInvoice[]>(initialInvoices);
+  // States initialized from cache/defaults, then hydrated from Supabase DB
+  const [settings, setSettings] = useState<StoreSettings>(() => {
+    const cached = localStorage.getItem('market_settings_cache');
+    return cached ? JSON.parse(cached) : initialSettings;
+  });
+  const [products, setProducts] = useState<Product[]>(() => {
+    const cached = localStorage.getItem('market_products_cache');
+    return cached ? JSON.parse(cached) : initialProducts;
+  });
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const cached = localStorage.getItem('market_categories_cache');
+    return cached ? JSON.parse(cached) : initialCategories;
+  });
+  const [customers, setCustomers] = useState<Customer[]>(() => {
+    const cached = localStorage.getItem('market_customers_cache');
+    return cached ? JSON.parse(cached) : initialCustomers;
+  });
+  const [transactions, setTransactions] = useState<CustomerTransaction[]>(() => {
+    const cached = localStorage.getItem('market_transactions_cache');
+    return cached ? JSON.parse(cached) : initialTransactions;
+  });
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const cached = localStorage.getItem('market_suppliers_cache');
+    return cached ? JSON.parse(cached) : initialSuppliers;
+  });
+  const [invoices, setInvoices] = useState<SaleInvoice[]>(() => {
+    const cached = localStorage.getItem('market_invoices_cache');
+    return cached ? JSON.parse(cached) : initialInvoices;
+  });
 
   // Fetch all data from Supabase on load
   useEffect(() => {
