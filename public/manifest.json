@@ -1,0 +1,26 @@
+{
+  "short_name": "مارکێتەکەم",
+  "name": "سیستەمی بەڕێوەبردنی مارکێت | Market Manager",
+  "description": "سیستەمێکی پێشکەوتووی بەڕێوەبردنی مارکێت و سوپەرمارکێت، بەشەکانی فرۆشتن (POS)، کۆگا، قەرزەکان، ڕاپۆرت و قازانج بە زمانی کوردی.",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0f172a",
+  "theme_color": "#d97706",
+  "display": "standalone",
+  "orientation": "any",
+  "dir": "rtl",
+  "lang": "ku"
+}

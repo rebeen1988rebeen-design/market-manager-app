@@ -1,0 +1,6 @@
+{
+  "name": "سیستەمی بەڕێوەبردنی مارکێت | Market Manager",
+  "description": "سیستەمێکی پێشکەوتووی بەڕێوەبردنی مارکێت و سوپەرمارکێت، بەشەکانی فرۆشتن (POS)، کۆگا، قەرزەکان، ڕاپۆرت و قازانج بە زمانی کوردی.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Vazirmatn', 'Plus Jakarta Sans', system-ui, sans-serif;
+    background-color: #f6f7fb;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(217, 119, 6, 0.08) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.06) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(245, 158, 11, 0.06) 0px, transparent 50%);
+    background-attachment: fixed;
+    color: #0f172a;
+    min-height: 100vh;
+  }
+
+  h1, h2, .font-serif {
+    font-family: 'Playfair Display', 'Vazirmatn', Georgia, serif;
+  }
+}
+
+/* Apple Liquid Glass Utility Classes */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 
+    0 20px 40px -15px rgba(15, 23, 42, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 1px 3px 0 rgba(0, 0, 0, 0.02);
+}
+
+.liquid-glass-dark {
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(24px) saturate(190%);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 24px 50px -12px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.liquid-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 
+    0 10px 30px -10px rgba(0, 0, 0, 0.04),
+    0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-card:hover {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(217, 119, 6, 0.3);
+  box-shadow: 
+    0 20px 40px -12px rgba(217, 119, 6, 0.12),
+    0 0 0 1px rgba(217, 119, 6, 0.2);
+  transform: translateY(-2px);
+}
+
+.liquid-button {
+  background: linear-gradient(135deg, rgba(217, 119, 6, 0.95), rgba(180, 83, 9, 0.98));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    0 8px 20px -6px rgba(217, 119, 6, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.liquid-button:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 1), rgba(217, 119, 6, 1));
+  box-shadow: 
+    0 12px 28px -6px rgba(217, 119, 6, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.4) inset;
+  transform: translateY(-1px);
+}
+
+.liquid-button:active {
+  transform: scale(0.97);
+}
+
+.liquid-pill {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+}
+
+.liquid-pill:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(217, 119, 6, 0.4);
+}
+
+/* Custom scrollbar matching Liquid Glass style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(246, 247, 251, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 83, 9, 0.9);
+}
+
+/* Print layout rules */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0mm;
+  }
+
+  html, body {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide all elements on the page by default during print */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Make printable receipt and its children visible */
+  .printable-receipt,
+  .printable-receipt * {
+    visibility: visible !important;
+  }
+
+  /* Thermal Receipt Container - sized strictly to 80mm */
+  .printable-receipt {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    padding: 4mm !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    font-size: 11px !important;
+    line-height: 1.3 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure text colors in receipt render crisp black when printed */
+  .printable-receipt * {
+    color: #000000 !important;
+    background: transparent !important;
+    border-color: #000000 !important;
+  }
+
+  /* Reports Printable Container (A4 width) */
+  #kurdish-report-printable,
+  #kurdish-report-printable * {
+    visibility: visible !important;
+  }
+
+  #kurdish-report-printable {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+    background: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Hide non-printable items explicitly */
+  .print\:hidden {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
