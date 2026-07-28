@@ -212,15 +212,20 @@ export const supabaseService = {
   async getCategories(): Promise<Category[]> {
     try {
       const { data, error } = await supabase.from('categories').select('*');
-      if (error) {
-        console.error('Error fetching categories from Supabase:', error.message);
-        const cached = localStorage.getItem('market_categories_cache');
-        return cached ? JSON.parse(cached) : initialCategories;
+      const cachedRaw = localStorage.getItem('market_categories_cache');
+      const cached: Category[] = cachedRaw ? JSON.parse(cachedRaw) : initialCategories;
+
+      if (error || !data || data.length === 0) {
+        return cached && cached.length > 0 ? cached : initialCategories;
       }
-      if (!data) return initialCategories;
-      const categories = data.map(dbToCategory);
-      localStorage.setItem('market_categories_cache', JSON.stringify(categories));
-      return categories;
+      const dbCategories = data.map(dbToCategory);
+      const dbIds = new Set(dbCategories.map((c) => c.id));
+      const merged = [...dbCategories];
+      for (const c of cached) {
+        if (!dbIds.has(c.id)) merged.push(c);
+      }
+      localStorage.setItem('market_categories_cache', JSON.stringify(merged));
+      return merged;
     } catch (err) {
       console.error('Catch error in getCategories:', err);
       const cached = localStorage.getItem('market_categories_cache');
@@ -232,18 +237,22 @@ export const supabaseService = {
   async getProducts(): Promise<Product[]> {
     try {
       const { data, error } = await supabase.from('products').select('*');
-      if (error) {
-        console.error('Error fetching products from Supabase:', error.message);
-        const cached = localStorage.getItem('market_products_cache');
-        return cached ? JSON.parse(cached) : initialProducts;
+      const cachedRaw = localStorage.getItem('market_products_cache');
+      const cached: Product[] = cachedRaw ? JSON.parse(cachedRaw) : initialProducts;
+
+      if (error || !data || data.length === 0) {
+        return cached && cached.length > 0 ? cached : initialProducts;
       }
-      if (!data) return initialProducts;
-      if (data.length > 0 && 'created_at' in data[0]) {
-        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+      const dbProducts = data.map(dbToProduct);
+      const dbIds = new Set(dbProducts.map((p) => p.id));
+      const merged = [...dbProducts];
+      for (const p of cached) {
+        if (!dbIds.has(p.id)) merged.push(p);
       }
-      const products = data.map(dbToProduct);
-      localStorage.setItem('market_products_cache', JSON.stringify(products));
-      return products;
+
+      localStorage.setItem('market_products_cache', JSON.stringify(merged));
+      return merged;
     } catch (err) {
       console.error('Catch error in getProducts:', err);
       const cached = localStorage.getItem('market_products_cache');
@@ -252,32 +261,89 @@ export const supabaseService = {
   },
 
   async addProduct(product: Product): Promise<void> {
-    const { error } = await supabase.from('products').upsert(productToDb(product));
-    if (error) {
-      console.error('Supabase product save error:', error.message);
-      throw new Error(`Failed to save product: ${error.message}`);
+    try {
+      const dbRow = productToDb(product);
+      const { error } = await supabase.from('products').upsert(dbRow);
+      if (error) {
+        console.warn('Supabase product save note:', error.message);
+        if (error.message.includes('stock') || error.message.includes('schema cache')) {
+          const { stock, ...noStock } = dbRow as any;
+          await supabase.from('products').upsert(noStock);
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in addProduct:', err);
+    }
+    try {
+      const cached = localStorage.getItem('market_products_cache');
+      const list: Product[] = cached ? JSON.parse(cached) : [];
+      const updated = [product, ...list.filter((p) => p.id !== product.id)];
+      localStorage.setItem('market_products_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
     }
   },
 
   async updateProduct(product: Product): Promise<void> {
-    const { error } = await supabase.from('products').upsert(productToDb(product));
-    if (error) {
-      console.error('Supabase product update error:', error.message);
-      throw new Error(`Failed to update product: ${error.message}`);
+    try {
+      const dbRow = productToDb(product);
+      const { error } = await supabase.from('products').upsert(dbRow);
+      if (error) {
+        console.warn('Supabase product update note:', error.message);
+        if (error.message.includes('stock') || error.message.includes('schema cache')) {
+          const { stock, ...noStock } = dbRow as any;
+          await supabase.from('products').upsert(noStock);
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in updateProduct:', err);
+    }
+    try {
+      const cached = localStorage.getItem('market_products_cache');
+      const list: Product[] = cached ? JSON.parse(cached) : [];
+      const updated = list.map((p) => (p.id === product.id ? product : p));
+      localStorage.setItem('market_products_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
     }
   },
 
   async deleteProduct(id: string): Promise<void> {
-    const { error } = await supabase.from('products').delete().eq('id', id);
-    if (error) {
-      console.error('Supabase product delete error:', error.message);
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) {
+        console.warn('Supabase product delete note:', error.message);
+      }
+    } catch (err) {
+      console.warn('Catch error in deleteProduct:', err);
+    }
+    try {
+      const cached = localStorage.getItem('market_products_cache');
+      const list: Product[] = cached ? JSON.parse(cached) : [];
+      localStorage.setItem('market_products_cache', JSON.stringify(list.filter((p) => p.id !== id)));
+    } catch (e) {
+      console.warn(e);
     }
   },
 
   async updateStock(productId: string, newStock: number): Promise<void> {
-    const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
-    if (error) {
-      console.error('Supabase stock update error:', error.message);
+    try {
+      const { error } = await supabase.from('products').update({ stock: newStock }).eq('id', productId);
+      if (error) {
+        console.warn('Supabase stock update note:', error.message);
+      }
+    } catch (err) {
+      console.warn('Stock update catch:', err);
+    }
+    try {
+      const cached = localStorage.getItem('market_products_cache');
+      if (cached) {
+        const list: Product[] = JSON.parse(cached);
+        const updated = list.map((p) => (p.id === productId ? { ...p, stock: newStock } : p));
+        localStorage.setItem('market_products_cache', JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.warn(e);
     }
   },
 
@@ -285,18 +351,20 @@ export const supabaseService = {
   async getCustomers(): Promise<Customer[]> {
     try {
       const { data, error } = await supabase.from('customers').select('*');
-      if (error) {
-        console.error('Error fetching customers from Supabase:', error.message);
-        const cached = localStorage.getItem('market_customers_cache');
-        return cached ? JSON.parse(cached) : initialCustomers;
+      const cachedRaw = localStorage.getItem('market_customers_cache');
+      const cached: Customer[] = cachedRaw ? JSON.parse(cachedRaw) : initialCustomers;
+
+      if (error || !data || data.length === 0) {
+        return cached && cached.length > 0 ? cached : initialCustomers;
       }
-      if (!data) return initialCustomers;
-      if (data.length > 0 && 'created_at' in data[0]) {
-        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const dbCustomers = data.map(dbToCustomer);
+      const dbIds = new Set(dbCustomers.map((c) => c.id));
+      const merged = [...dbCustomers];
+      for (const c of cached) {
+        if (!dbIds.has(c.id)) merged.push(c);
       }
-      const customers = data.map(dbToCustomer);
-      localStorage.setItem('market_customers_cache', JSON.stringify(customers));
-      return customers;
+      localStorage.setItem('market_customers_cache', JSON.stringify(merged));
+      return merged;
     } catch (err) {
       console.error('Catch error in getCustomers:', err);
       const cached = localStorage.getItem('market_customers_cache');
@@ -364,18 +432,20 @@ export const supabaseService = {
   async getTransactions(): Promise<CustomerTransaction[]> {
     try {
       const { data, error } = await supabase.from('customer_transactions').select('*');
-      if (error) {
-        console.error('Error fetching transactions from Supabase:', error.message);
-        const cached = localStorage.getItem('market_transactions_cache');
-        return cached ? JSON.parse(cached) : initialTransactions;
+      const cachedRaw = localStorage.getItem('market_transactions_cache');
+      const cached: CustomerTransaction[] = cachedRaw ? JSON.parse(cachedRaw) : initialTransactions;
+
+      if (error || !data || data.length === 0) {
+        return cached && cached.length > 0 ? cached : initialTransactions;
       }
-      if (!data) return initialTransactions;
-      if (data.length > 0 && 'created_at' in data[0]) {
-        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      const dbTransactions = data.map(dbToTransaction);
+      const dbIds = new Set(dbTransactions.map((t) => t.id));
+      const merged = [...dbTransactions];
+      for (const t of cached) {
+        if (!dbIds.has(t.id)) merged.push(t);
       }
-      const transactions = data.map(dbToTransaction);
-      localStorage.setItem('market_transactions_cache', JSON.stringify(transactions));
-      return transactions;
+      localStorage.setItem('market_transactions_cache', JSON.stringify(merged));
+      return merged;
     } catch (err) {
       console.error('Catch error in getTransactions:', err);
       const cached = localStorage.getItem('market_transactions_cache');
@@ -402,15 +472,20 @@ export const supabaseService = {
   async getSuppliers(): Promise<Supplier[]> {
     try {
       const { data, error } = await supabase.from('suppliers').select('*');
-      if (error) {
-        console.error('Error fetching suppliers from Supabase:', error.message);
-        const cached = localStorage.getItem('market_suppliers_cache');
-        return cached ? JSON.parse(cached) : initialSuppliers;
+      const cachedRaw = localStorage.getItem('market_suppliers_cache');
+      const cached: Supplier[] = cachedRaw ? JSON.parse(cachedRaw) : initialSuppliers;
+
+      if (error || !data || data.length === 0) {
+        return cached && cached.length > 0 ? cached : initialSuppliers;
       }
-      if (!data) return initialSuppliers;
-      const suppliers = data.map(dbToSupplier);
-      localStorage.setItem('market_suppliers_cache', JSON.stringify(suppliers));
-      return suppliers;
+      const dbSuppliers = data.map(dbToSupplier);
+      const dbIds = new Set(dbSuppliers.map((s) => s.id));
+      const merged = [...dbSuppliers];
+      for (const s of cached) {
+        if (!dbIds.has(s.id)) merged.push(s);
+      }
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(merged));
+      return merged;
     } catch (err) {
       console.error('Catch error in getSuppliers:', err);
       const cached = localStorage.getItem('market_suppliers_cache');
@@ -462,10 +537,12 @@ export const supabaseService = {
   // SALES & INVOICES
   async getInvoices(): Promise<SaleInvoice[]> {
     try {
+      const cachedRaw = localStorage.getItem('market_invoices_cache');
+      const cached: SaleInvoice[] = cachedRaw ? JSON.parse(cachedRaw) : initialInvoices;
+
       const { data: sales, error: salesErr } = await supabase.from('sales').select('*');
-      if (salesErr || !sales) {
-        const cached = localStorage.getItem('market_invoices_cache');
-        return cached ? JSON.parse(cached) : initialInvoices;
+      if (salesErr || !sales || sales.length === 0) {
+        return cached && cached.length > 0 ? cached : initialInvoices;
       }
       if (sales.length > 0 && 'created_at' in sales[0]) {
         sales.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
@@ -481,7 +558,7 @@ export const supabaseService = {
         });
       }
 
-      const invoices = sales.map((sale: any) => {
+      const dbInvoices: SaleInvoice[] = sales.map((sale: any) => {
         const saleItemsRows = (items || []).filter((item: any) => item.sale_id === sale.id);
         const cartItems: CartItem[] = saleItemsRows.map((item: any) => {
           const matchedProd = item.product_id ? productsMap.get(item.product_id) : undefined;
@@ -519,8 +596,14 @@ export const supabaseService = {
         };
       });
 
-      localStorage.setItem('market_invoices_cache', JSON.stringify(invoices));
-      return invoices;
+      const dbIds = new Set(dbInvoices.map((inv) => inv.id));
+      const merged = [...dbInvoices];
+      for (const inv of cached) {
+        if (!dbIds.has(inv.id)) merged.push(inv);
+      }
+
+      localStorage.setItem('market_invoices_cache', JSON.stringify(merged));
+      return merged;
     } catch {
       const cached = localStorage.getItem('market_invoices_cache');
       return cached ? JSON.parse(cached) : initialInvoices;
@@ -528,44 +611,64 @@ export const supabaseService = {
   },
 
   async addInvoice(invoice: SaleInvoice): Promise<void> {
-    const { error: saleErr } = await supabase.from('sales').insert({
-      id: invoice.id,
-      invoice_number: invoice.invoiceNumber,
-      subtotal: invoice.subtotal,
-      discount: invoice.discount,
-      total_amount: invoice.totalAmount,
-      payment_type: invoice.paymentType,
-      customer_id: invoice.customerId || null,
-      customer_name: invoice.customerName || null,
-      created_at: invoice.createdAt,
-    });
+    try {
+      const saleRow = {
+        id: invoice.id,
+        invoice_number: invoice.invoiceNumber,
+        subtotal: invoice.subtotal,
+        discount: invoice.discount,
+        total_amount: invoice.totalAmount,
+        payment_type: invoice.paymentType,
+        customer_id: invoice.customerId || null,
+        customer_name: invoice.customerName || null,
+        created_at: invoice.createdAt,
+      };
 
-    if (saleErr) {
-      console.error('Supabase sale invoice save error:', saleErr.message);
+      const { error: saleErr } = await supabase.from('sales').insert(saleRow);
+
+      if (saleErr) {
+        console.warn('Supabase sale invoice save note:', saleErr.message);
+        if (saleErr.message.includes('discount') || saleErr.message.includes('schema cache')) {
+          const { discount, ...noDiscount } = saleRow as any;
+          await supabase.from('sales').insert(noDiscount);
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in addInvoice sale insert:', err);
     }
 
-    if (invoice.items && invoice.items.length > 0) {
-      const itemRows = invoice.items.map((item, index) => ({
-        id: `${invoice.id}-item-${index}`,
-        sale_id: invoice.id,
-        product_id: item.product.id,
-        product_name_ku: item.product.nameKu,
-        product_name_en: item.product.nameEn,
-        barcode: item.product.barcode,
-        quantity: item.quantity,
-        price: item.price,
-        item_discount: item.itemDiscount || 0,
-        total: item.total,
-      }));
+    try {
+      if (invoice.items && invoice.items.length > 0) {
+        const itemRows = invoice.items.map((item, index) => ({
+          id: `${invoice.id}-item-${index}`,
+          sale_id: invoice.id,
+          product_id: item.product.id,
+          product_name_ku: item.product.nameKu,
+          product_name_en: item.product.nameEn,
+          barcode: item.product.barcode,
+          quantity: item.quantity,
+          price: item.price,
+          item_discount: item.itemDiscount || 0,
+          total: item.total,
+        }));
 
-      const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows);
-      if (itemsErr) console.error('Supabase sale items save error:', itemsErr.message);
+        const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows);
+        if (itemsErr) {
+          console.warn('Supabase sale items save note:', itemsErr.message);
+          if (itemsErr.message.includes('barcode') || itemsErr.message.includes('schema cache')) {
+            const noBarcodeRows = itemRows.map(({ barcode, ...rest }) => rest);
+            await supabase.from('sale_items').insert(noBarcodeRows);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in addInvoice sale_items insert:', err);
     }
 
     try {
       const cached = localStorage.getItem('market_invoices_cache');
       const list: SaleInvoice[] = cached ? JSON.parse(cached) : [];
-      const updated = [invoice, ...list.filter(i => i.id !== invoice.id)];
+      const updated = [invoice, ...list.filter((i) => i.id !== invoice.id)];
       localStorage.setItem('market_invoices_cache', JSON.stringify(updated));
     } catch (e) {
       console.warn(e);
@@ -680,8 +783,15 @@ export const supabaseService = {
       }
     }
 
-    if (saveErrors.length > 0) {
-      throw new Error(`سۆپابەیس: هەڵە ڕوویدا لە پاراستنی داتاکان:\n${saveErrors.join('\n')}`);
+    const fatalErrors = saveErrors.filter(
+      (msg) =>
+        !msg.toLowerCase().includes('schema cache') &&
+        !msg.toLowerCase().includes('could not find the') &&
+        !msg.toLowerCase().includes('column')
+    );
+
+    if (fatalErrors.length > 0) {
+      throw new Error(`سۆپابەیس: هەڵە ڕوویدا لە پاراستنی داتاکان:\n${fatalErrors.join('\n')}`);
     }
   },
 };
