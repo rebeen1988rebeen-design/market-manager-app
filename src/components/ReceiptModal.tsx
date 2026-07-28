@@ -126,111 +126,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   // Green button 80mm Thermal Receipt Print handler
-  const handlePrint80mm = async () => {
-    setIsPrinting(true);
-
-    try {
-      if (!receiptRef.current) {
-        window.print();
-        return;
-      }
-
-      const element = receiptRef.current;
-      const canvas = await html2canvas(element, {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: (clonedDoc) => {
-          const styleTags = clonedDoc.querySelectorAll('style');
-          styleTags.forEach((style) => {
-            if (style.textContent) {
-              style.textContent = style.textContent
-                .replace(/oklch\([^\)]*\)/gi, '#1e293b')
-                .replace(/oklab\([^\)]*\)/gi, '#1e293b')
-                .replace(/color\([^\)]*\)/gi, '#1e293b')
-                .replace(/color-mix\([^\)]*\)/gi, '#1e293b')
-                .replace(/light-dark\([^\)]*\)/gi, '#1e293b')
-                .replace(/(oklch|oklab|color-mix)\s*\([^;\}]+/gi, '#1e293b');
-            }
-          });
-
-          const target = clonedDoc.querySelector('.printable-receipt') as HTMLElement;
-          if (target) {
-            target.style.width = '350px';
-            target.style.maxHeight = 'none';
-            target.style.height = 'auto';
-            target.style.overflow = 'visible';
-            target.style.backgroundColor = '#ffffff';
-            target.style.color = '#000000';
-            target.style.padding = '16px';
-            target.style.borderRadius = '0px';
-            target.style.border = 'none';
-            target.style.boxShadow = 'none';
-          }
-
-          const allElements = clonedDoc.querySelectorAll('*');
-          allElements.forEach((node) => {
-            const el = node as HTMLElement;
-            const styleAttr = el.getAttribute?.('style');
-            if (styleAttr) {
-              el.setAttribute(
-                'style',
-                styleAttr
-                  .replace(/oklch\([^\)]*\)/gi, '#1e293b')
-                  .replace(/oklab\([^\)]*\)/gi, '#1e293b')
-                  .replace(/color\([^\)]*\)/gi, '#1e293b')
-                  .replace(/color-mix\([^\)]*\)/gi, '#1e293b')
-                  .replace(/light-dark\([^\)]*\)/gi, '#1e293b')
-                  .replace(/(oklch|oklab|color-mix)\s*\([^;\}]+/gi, '#1e293b')
-              );
-            }
-          });
-        },
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = 80; // strictly 80mm thermal paper width
-      const pdfHeight = Math.max(100, (canvas.height * pdfWidth) / canvas.width);
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [pdfWidth, pdfHeight],
-      });
-
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-
-      const pdfBlob = pdf.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const fileName = `wesl-${invoice.invoiceNumber}-80mm.pdf`;
-
-      // 1. Download/Open 80mm PDF for thermal printers
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // 2. Trigger browser print window for native thermal printing
-      setTimeout(() => {
-        window.print();
-        URL.revokeObjectURL(blobUrl);
-      }, 300);
-
-    } catch (err) {
-      console.error('80mm thermal receipt printing error:', err);
-      window.print();
-    } finally {
-      setIsPrinting(false);
-    }
+  const handlePrint80mm = () => {
+    window.print();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[90vh] flex flex-col">
+    <div className="printable-receipt-parent fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
+      <div className="printable-receipt-parent liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[90vh] flex flex-col">
         
         {/* Actions bar (hidden during print) */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 print:hidden">

@@ -231,13 +231,16 @@ export const supabaseService = {
   // PRODUCTS
   async getProducts(): Promise<Product[]> {
     try {
-      const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('products').select('*');
       if (error) {
         console.error('Error fetching products from Supabase:', error.message);
         const cached = localStorage.getItem('market_products_cache');
         return cached ? JSON.parse(cached) : initialProducts;
       }
       if (!data) return initialProducts;
+      if (data.length > 0 && 'created_at' in data[0]) {
+        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
       const products = data.map(dbToProduct);
       localStorage.setItem('market_products_cache', JSON.stringify(products));
       return products;
@@ -281,13 +284,16 @@ export const supabaseService = {
   // CUSTOMERS
   async getCustomers(): Promise<Customer[]> {
     try {
-      const { data, error } = await supabase.from('customers').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('customers').select('*');
       if (error) {
         console.error('Error fetching customers from Supabase:', error.message);
         const cached = localStorage.getItem('market_customers_cache');
         return cached ? JSON.parse(cached) : initialCustomers;
       }
       if (!data) return initialCustomers;
+      if (data.length > 0 && 'created_at' in data[0]) {
+        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
       const customers = data.map(dbToCustomer);
       localStorage.setItem('market_customers_cache', JSON.stringify(customers));
       return customers;
@@ -303,6 +309,14 @@ export const supabaseService = {
     if (error) {
       console.error('Supabase customer save error:', error.message);
     }
+    try {
+      const cached = localStorage.getItem('market_customers_cache');
+      const list: Customer[] = cached ? JSON.parse(cached) : [];
+      const updated = [customer, ...list.filter(c => c.id !== customer.id)];
+      localStorage.setItem('market_customers_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   async updateCustomer(customer: Customer): Promise<void> {
@@ -310,27 +324,55 @@ export const supabaseService = {
     if (error) {
       console.error('Supabase customer update error:', error.message);
     }
+    try {
+      const cached = localStorage.getItem('market_customers_cache');
+      const list: Customer[] = cached ? JSON.parse(cached) : [];
+      const updated = list.map(c => c.id === customer.id ? customer : c);
+      localStorage.setItem('market_customers_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   async deleteCustomer(id: string): Promise<void> {
     await supabase.from('customer_transactions').delete().eq('customer_id', id);
     await supabase.from('customers').delete().eq('id', id);
+    try {
+      const cached = localStorage.getItem('market_customers_cache');
+      const list: Customer[] = cached ? JSON.parse(cached) : [];
+      localStorage.setItem('market_customers_cache', JSON.stringify(list.filter(c => c.id !== id)));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   async updateCustomerDebt(customerId: string, newDebtBalance: number): Promise<void> {
     await supabase.from('customers').update({ debt_balance: newDebtBalance }).eq('id', customerId);
+    try {
+      const cached = localStorage.getItem('market_customers_cache');
+      if (cached) {
+        const list: Customer[] = JSON.parse(cached);
+        const updated = list.map(c => c.id === customerId ? { ...c, debtBalance: newDebtBalance } : c);
+        localStorage.setItem('market_customers_cache', JSON.stringify(updated));
+      }
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   // TRANSACTIONS
   async getTransactions(): Promise<CustomerTransaction[]> {
     try {
-      const { data, error } = await supabase.from('customer_transactions').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('customer_transactions').select('*');
       if (error) {
         console.error('Error fetching transactions from Supabase:', error.message);
         const cached = localStorage.getItem('market_transactions_cache');
         return cached ? JSON.parse(cached) : initialTransactions;
       }
       if (!data) return initialTransactions;
+      if (data.length > 0 && 'created_at' in data[0]) {
+        data.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
       const transactions = data.map(dbToTransaction);
       localStorage.setItem('market_transactions_cache', JSON.stringify(transactions));
       return transactions;
@@ -345,6 +387,14 @@ export const supabaseService = {
     const { error } = await supabase.from('customer_transactions').upsert(transactionToDb(tx));
     if (error) {
       console.error('Supabase transaction save error:', error.message);
+    }
+    try {
+      const cached = localStorage.getItem('market_transactions_cache');
+      const list: CustomerTransaction[] = cached ? JSON.parse(cached) : [];
+      const updated = [tx, ...list.filter(t => t.id !== tx.id)];
+      localStorage.setItem('market_transactions_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
     }
   },
 
@@ -373,6 +423,14 @@ export const supabaseService = {
     if (error) {
       console.error('Supabase supplier save error:', error.message);
     }
+    try {
+      const cached = localStorage.getItem('market_suppliers_cache');
+      const list: Supplier[] = cached ? JSON.parse(cached) : [];
+      const updated = [supplier, ...list.filter(s => s.id !== supplier.id)];
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   async updateSupplier(supplier: Supplier): Promise<void> {
@@ -380,43 +438,72 @@ export const supabaseService = {
     if (error) {
       console.error('Supabase supplier update error:', error.message);
     }
+    try {
+      const cached = localStorage.getItem('market_suppliers_cache');
+      const list: Supplier[] = cached ? JSON.parse(cached) : [];
+      const updated = list.map(s => s.id === supplier.id ? supplier : s);
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   async deleteSupplier(id: string): Promise<void> {
     await supabase.from('suppliers').delete().eq('id', id);
+    try {
+      const cached = localStorage.getItem('market_suppliers_cache');
+      const list: Supplier[] = cached ? JSON.parse(cached) : [];
+      localStorage.setItem('market_suppliers_cache', JSON.stringify(list.filter(s => s.id !== id)));
+    } catch (e) {
+      console.warn(e);
+    }
   },
 
   // SALES & INVOICES
   async getInvoices(): Promise<SaleInvoice[]> {
     try {
-      const { data: sales, error: salesErr } = await supabase.from('sales').select('*').order('created_at', { ascending: false });
+      const { data: sales, error: salesErr } = await supabase.from('sales').select('*');
       if (salesErr || !sales) {
         const cached = localStorage.getItem('market_invoices_cache');
         return cached ? JSON.parse(cached) : initialInvoices;
       }
+      if (sales.length > 0 && 'created_at' in sales[0]) {
+        sales.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      }
 
       const { data: items } = await supabase.from('sale_items').select('*');
+      const { data: productsData } = await supabase.from('products').select('*');
+
+      const productsMap = new Map<string, Product>();
+      if (productsData && productsData.length > 0) {
+        productsData.forEach((p) => {
+          productsMap.set(p.id, dbToProduct(p));
+        });
+      }
 
       const invoices = sales.map((sale: any) => {
         const saleItemsRows = (items || []).filter((item: any) => item.sale_id === sale.id);
-        const cartItems: CartItem[] = saleItemsRows.map((item: any) => ({
-          product: {
-            id: item.product_id || '',
-            barcode: item.barcode || '',
-            nameKu: item.product_name_ku || '',
-            nameEn: item.product_name_en || '',
-            category: 'grocery',
-            purchasePrice: 0,
-            sellingPrice: Number(item.price || 0),
-            stock: 0,
-            lowStockAlert: 5,
-            unit: 'دانە',
-          },
-          quantity: Number(item.quantity || 1),
-          price: Number(item.price || 0),
-          itemDiscount: Number(item.item_discount || 0),
-          total: Number(item.total || 0),
-        }));
+        const cartItems: CartItem[] = saleItemsRows.map((item: any) => {
+          const matchedProd = item.product_id ? productsMap.get(item.product_id) : undefined;
+          return {
+            product: {
+              id: item.product_id || '',
+              barcode: item.barcode || matchedProd?.barcode || '',
+              nameKu: item.product_name_ku || matchedProd?.nameKu || '',
+              nameEn: item.product_name_en || matchedProd?.nameEn || '',
+              category: matchedProd?.category || 'grocery',
+              purchasePrice: matchedProd?.purchasePrice || 0,
+              sellingPrice: Number(item.price || matchedProd?.sellingPrice || 0),
+              stock: matchedProd?.stock || 0,
+              lowStockAlert: matchedProd?.lowStockAlert || 5,
+              unit: matchedProd?.unit || 'دانە',
+            },
+            quantity: Number(item.quantity || 1),
+            price: Number(item.price || 0),
+            itemDiscount: Number(item.item_discount || 0),
+            total: Number(item.total || 0),
+          };
+        });
 
         return {
           id: sale.id,
@@ -455,7 +542,6 @@ export const supabaseService = {
 
     if (saleErr) {
       console.error('Supabase sale invoice save error:', saleErr.message);
-      return;
     }
 
     if (invoice.items && invoice.items.length > 0) {
@@ -474,6 +560,15 @@ export const supabaseService = {
 
       const { error: itemsErr } = await supabase.from('sale_items').insert(itemRows);
       if (itemsErr) console.error('Supabase sale items save error:', itemsErr.message);
+    }
+
+    try {
+      const cached = localStorage.getItem('market_invoices_cache');
+      const list: SaleInvoice[] = cached ? JSON.parse(cached) : [];
+      const updated = [invoice, ...list.filter(i => i.id !== invoice.id)];
+      localStorage.setItem('market_invoices_cache', JSON.stringify(updated));
+    } catch (e) {
+      console.warn(e);
     }
   },
 

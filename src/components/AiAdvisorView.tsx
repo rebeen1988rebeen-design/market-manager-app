@@ -30,13 +30,29 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
   const totalRevenue = invoices.reduce((acc, inv) => acc + inv.totalAmount, 0);
   const totalDebts = customers.reduce((acc, c) => acc + c.debtBalance, 0);
 
+  const productMap = new Map<string, Product>(products.map((p) => [p.id, p]));
+  let totalCost = 0;
+  invoices.forEach((inv) => {
+    inv.items.forEach((item) => {
+      const liveProd = productMap.get(item.product.id);
+      const purchasePrice = (item.product.purchasePrice && item.product.purchasePrice > 0)
+        ? item.product.purchasePrice
+        : (liveProd?.purchasePrice || 0);
+      totalCost += purchasePrice * item.quantity;
+    });
+  });
+  const totalNetProfit = Math.max(0, totalRevenue - totalCost);
+
   const handleRunAdvisor = async (customPrompt?: string) => {
     setIsLoading(true);
     setErrorMsg(null);
 
+    const activePrompt = customPrompt || userPrompt;
+
     const storeSummary = {
       totalProductsCount: products.length,
-      lowStockItems: lowStockItems.map((p) => ({
+      lowStockCount: lowStockItems.length,
+      lowStockItemsList: lowStockItems.slice(0, 15).map((p) => ({
         nameKu: p.nameKu,
         nameEn: p.nameEn,
         stock: p.stock,
@@ -44,7 +60,9 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
       })),
       totalSalesInvoices: invoices.length,
       totalRevenueIqd: totalRevenue,
+      estimatedNetProfitIqd: totalNetProfit,
       totalOutstandingCustomerDebtsIqd: totalDebts,
+      totalCustomersCount: customers.length,
     };
 
     try {
@@ -52,7 +70,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: customPrompt || userPrompt,
+          prompt: activePrompt,
           storeSummary,
           language: lang,
         }),

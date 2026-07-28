@@ -82,11 +82,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Calculate totals
   const totalRevenue = filteredInvoices.reduce((acc, inv) => acc + inv.totalAmount, 0);
 
+  const productMap = new Map<string, Product>(products.map((p) => [p.id, p]));
+
   // Estimate profit = Total revenue - Cost of sold items
   let totalCost = 0;
   filteredInvoices.forEach((inv) => {
     inv.items.forEach((item) => {
-      totalCost += (item.product.purchasePrice || 0) * item.quantity;
+      const liveProd = productMap.get(item.product.id);
+      const purchasePrice = (item.product.purchasePrice && item.product.purchasePrice > 0)
+        ? item.product.purchasePrice
+        : (liveProd?.purchasePrice || 0);
+      totalCost += purchasePrice * item.quantity;
     });
   });
   const netProfit = Math.max(0, totalRevenue - totalCost);
@@ -102,7 +108,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
     let invCost = 0;
     inv.items.forEach((item) => {
-      invCost += (item.product.purchasePrice || 0) * item.quantity;
+      const liveProd = productMap.get(item.product.id);
+      const purchasePrice = (item.product.purchasePrice && item.product.purchasePrice > 0)
+        ? item.product.purchasePrice
+        : (liveProd?.purchasePrice || 0);
+      invCost += purchasePrice * item.quantity;
     });
     const invProfit = Math.max(0, inv.totalAmount - invCost);
 

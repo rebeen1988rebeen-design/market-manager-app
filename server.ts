@@ -132,9 +132,8 @@ async function startServer() {
       }
 
       const systemInstruction = language === "ku"
-        ? `تۆ یاریدەدەری ژیری مارکێت و سوپەرمارکێتی. وەڵامەکانت بە زمانی کوردی سۆرانی شێوازێکی زۆر ئەدەبی، بەسوود و پیشەیی بێت.
-زانیاری کۆگا و فرۆشتنی مارکێتەکەت پێدەدرێت. ئامۆژگاری بۆ زیادکردنی قازانج، بەڕێوەبردنی کاڵا کەمبووەکان، و ستراتیژی داواکردن پێشکەش بکە.
-کورت و ڕوون بێت، بە ڕێکخراوی نیشانی بدە.`
+        ? `تۆ یاریدەدەری ژیری مارکێت و سوپەرمارکێتی (Gemini AI Market Advisor). وەڵامەکانت بە زمانی کوردی سۆرانی، بە شێوازێکی زۆر ڕێکخراو، کورت، بەسوود و پیشەیی دابڕێژە.
+زانیاری کۆگا، فرۆشتن، قەرزەکان، و داهاتی مارکێتەکەت پێدەدرێت. ئامۆژگاری پرۆفێشیناڵ بۆ زیادکردنی قازانجی خاوێن، بەڕێوەبردنی کاڵا کەمبووەکان، کۆنتڕۆڵکردنی قەرزی کریاران و دابینکەران پێشکەش بکە.`
         : `You are an expert AI retail and store manager advisor. Provide actionable, concise business insights, stock reorder suggestions, and profit optimization advice based on the provided store data. Response should be clear and professional.`;
 
       const userMessage = `
@@ -142,11 +141,11 @@ async function startServer() {
 ${JSON.stringify(storeSummary, null, 2)}
 
 [پرسیار یان داواکاری / User Query]:
-${prompt || "تکایە شیکاری گشتی بۆ کۆگا و فرۆشتنەکانم بکە و ڕاسپاردەم پێ بدە."}
+${prompt || "تکایە شیکاری گشتی بۆ کۆگا، فرۆشتنەکان، قەرزەکان و داهاتم بکە و ڕاسپاردەم پێ بدە."}
 `;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.6-flash",
         contents: userMessage,
         config: {
           systemInstruction,
