@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, CloudCheck } from 'lucide-react';
 import { 
   Language, 
   Currency, 
@@ -31,9 +31,10 @@ import { AiAdvisorView } from './components/AiAdvisorView';
 import { SettingsModal } from './components/SettingsModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { getTranslation } from './utils/translations';
+import { supabaseService } from './lib/supabaseService';
 
 export default function App() {
-  // Core Settings (Loaded from LocalStorage)
+  // Core Settings
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem('market_lang');
     return (saved as Language) || 'ku';
@@ -49,65 +50,59 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [activeReceiptInvoice, setActiveReceiptInvoice] = useState<SaleInvoice | null>(null);
   const [showSaveToast, setShowSaveToast] = useState<boolean>(false);
+  const [isSyncing, setIsSyncing] = useState<boolean>(true);
 
-  // Persistent States from LocalStorage or Defaults
-  const [settings, setSettings] = useState<StoreSettings>(() => {
-    const saved = localStorage.getItem('market_settings');
-    return saved ? JSON.parse(saved) : initialSettings;
-  });
+  // States initialized from defaults, then loaded from Supabase DB
+  const [settings, setSettings] = useState<StoreSettings>(initialSettings);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [transactions, setTransactions] = useState<CustomerTransaction[]>(initialTransactions);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [invoices, setInvoices] = useState<SaleInvoice[]>(initialInvoices);
 
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('market_products');
-    return saved ? JSON.parse(saved) : initialProducts;
-  });
-
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('market_categories');
-    return saved ? JSON.parse(saved) : initialCategories;
-  });
-
-  const [customers, setCustomers] = useState<Customer[]>(() => {
-    const saved = localStorage.getItem('market_customers');
-    return saved ? JSON.parse(saved) : initialCustomers;
-  });
-
-  const [transactions, setTransactions] = useState<CustomerTransaction[]>(() => {
-    const saved = localStorage.getItem('market_transactions');
-    return saved ? JSON.parse(saved) : initialTransactions;
-  });
-
-  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
-    const saved = localStorage.getItem('market_suppliers');
-    return saved ? JSON.parse(saved) : initialSuppliers;
-  });
-
-  const [invoices, setInvoices] = useState<SaleInvoice[]>(() => {
-    const saved = localStorage.getItem('market_invoices');
-    return saved ? JSON.parse(saved) : initialInvoices;
-  });
-
-  // Auto-save on window exit / refresh
+  // Fetch all data from Supabase on load
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      localStorage.setItem('market_products', JSON.stringify(products));
-      localStorage.setItem('market_categories', JSON.stringify(categories));
-      localStorage.setItem('market_customers', JSON.stringify(customers));
-      localStorage.setItem('market_transactions', JSON.stringify(transactions));
-      localStorage.setItem('market_suppliers', JSON.stringify(suppliers));
-      localStorage.setItem('market_invoices', JSON.stringify(invoices));
-      localStorage.setItem('market_settings', JSON.stringify(settings));
-      localStorage.setItem('market_lang', lang);
-      localStorage.setItem('market_currency', currency);
-      localStorage.setItem('market_active_tab', activeTab);
-    };
+    async function loadSupabaseData() {
+      setIsSyncing(true);
+      try {
+        await supabaseService.initializeDatabase();
+        const [
+          dbSettings,
+          dbProducts,
+          dbCategories,
+          dbCustomers,
+          dbTransactions,
+          dbSuppliers,
+          dbInvoices,
+        ] = await Promise.all([
+          supabaseService.getSettings(),
+          supabaseService.getProducts(),
+          supabaseService.getCategories(),
+          supabaseService.getCustomers(),
+          supabaseService.getTransactions(),
+          supabaseService.getSuppliers(),
+          supabaseService.getInvoices(),
+        ]);
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [products, categories, customers, transactions, suppliers, invoices, settings, lang, currency, activeTab]);
+        if (dbSettings) setSettings(dbSettings);
+        if (dbProducts && dbProducts.length > 0) setProducts(dbProducts);
+        if (dbCategories && dbCategories.length > 0) setCategories(dbCategories);
+        if (dbCustomers && dbCustomers.length > 0) setCustomers(dbCustomers);
+        if (dbTransactions && dbTransactions.length > 0) setTransactions(dbTransactions);
+        if (dbSuppliers && dbSuppliers.length > 0) setSuppliers(dbSuppliers);
+        if (dbInvoices && dbInvoices.length > 0) setInvoices(dbInvoices);
+      } catch (error) {
+        console.error('Error fetching data from Supabase:', error);
+      } finally {
+        setIsSyncing(false);
+      }
+    }
 
-  // Save state to LocalStorage on changes so session tab & choices persist
+    loadSupabaseData();
+  }, []);
+
+  // Save UI preferences to localStorage
   useEffect(() => {
     localStorage.setItem('market_lang', lang);
   }, [lang]);
@@ -120,49 +115,14 @@ export default function App() {
     localStorage.setItem('market_active_tab', activeTab);
   }, [activeTab]);
 
-  useEffect(() => {
-    localStorage.setItem('market_settings', JSON.stringify(settings));
-  }, [settings]);
-
-  useEffect(() => {
-    localStorage.setItem('market_products', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('market_categories', JSON.stringify(categories));
-  }, [categories]);
-
-  useEffect(() => {
-    localStorage.setItem('market_customers', JSON.stringify(customers));
-  }, [customers]);
-
-  useEffect(() => {
-    localStorage.setItem('market_transactions', JSON.stringify(transactions));
-  }, [transactions]);
-
-  useEffect(() => {
-    localStorage.setItem('market_suppliers', JSON.stringify(suppliers));
-  }, [suppliers]);
-
-  useEffect(() => {
-    localStorage.setItem('market_invoices', JSON.stringify(invoices));
-  }, [invoices]);
-
   // Global manual save & JSON backup file export trigger
-  const handleSaveAllData = () => {
-    // 1. Save all data to browser LocalStorage
-    localStorage.setItem('market_products', JSON.stringify(products));
-    localStorage.setItem('market_categories', JSON.stringify(categories));
-    localStorage.setItem('market_customers', JSON.stringify(customers));
-    localStorage.setItem('market_transactions', JSON.stringify(transactions));
-    localStorage.setItem('market_suppliers', JSON.stringify(suppliers));
-    localStorage.setItem('market_invoices', JSON.stringify(invoices));
-    localStorage.setItem('market_settings', JSON.stringify(settings));
-    localStorage.setItem('market_lang', lang);
-    localStorage.setItem('market_currency', currency);
-    localStorage.setItem('market_active_tab', activeTab);
+  const handleSaveAllData = async () => {
+    try {
+      await supabaseService.saveSettings(settings);
+    } catch (err) {
+      console.warn('Backup save warning:', err);
+    }
 
-    // 2. Export full backup as downloadable .json file for safe offline storage
     const backupData = {
       app: 'MarketManagementSystem',
       exportDate: new Date().toISOString(),
@@ -191,6 +151,12 @@ export default function App() {
     }, 4000);
   };
 
+  // Save settings handler
+  const handleSaveSettings = (newSettings: StoreSettings) => {
+    setSettings(newSettings);
+    supabaseService.saveSettings(newSettings);
+  };
+
   // Restore backup from JSON file
   const handleRestoreData = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileReader = new FileReader();
@@ -202,48 +168,29 @@ export default function App() {
           if (parsed) {
             if (parsed.products) {
               setProducts(parsed.products);
-              localStorage.setItem('market_products', JSON.stringify(parsed.products));
-            }
-            if (parsed.categories) {
-              setCategories(parsed.categories);
-              localStorage.setItem('market_categories', JSON.stringify(parsed.categories));
+              parsed.products.forEach((p: Product) => supabaseService.addProduct(p));
             }
             if (parsed.customers) {
               setCustomers(parsed.customers);
-              localStorage.setItem('market_customers', JSON.stringify(parsed.customers));
-            }
-            if (parsed.transactions) {
-              setTransactions(parsed.transactions);
-              localStorage.setItem('market_transactions', JSON.stringify(parsed.transactions));
+              parsed.customers.forEach((c: Customer) => supabaseService.addCustomer(c));
             }
             if (parsed.suppliers) {
               setSuppliers(parsed.suppliers);
-              localStorage.setItem('market_suppliers', JSON.stringify(parsed.suppliers));
-            }
-            if (parsed.invoices) {
-              setInvoices(parsed.invoices);
-              localStorage.setItem('market_invoices', JSON.stringify(parsed.invoices));
+              parsed.suppliers.forEach((s: Supplier) => supabaseService.addSupplier(s));
             }
             if (parsed.settings) {
               setSettings(parsed.settings);
-              localStorage.setItem('market_settings', JSON.stringify(parsed.settings));
+              supabaseService.saveSettings(parsed.settings);
             }
-            if (parsed.lang) {
-              setLang(parsed.lang);
-              localStorage.setItem('market_lang', parsed.lang);
-            }
-            if (parsed.currency) {
-              setCurrency(parsed.currency);
-              localStorage.setItem('market_currency', parsed.currency);
-            }
+            if (parsed.lang) setLang(parsed.lang);
+            if (parsed.currency) setCurrency(parsed.currency);
 
             alert(getTranslation(lang, 'dataRestoredSuccessfully'));
           }
-        } catch (err) {
+        } catch {
           alert(getTranslation(lang, 'invalidBackupFile'));
         }
       };
-      // Reset input value so same file can be reselected if needed
       e.target.value = '';
     }
   };
@@ -255,20 +202,31 @@ export default function App() {
       id: `prod-${Date.now()}`,
     };
     setProducts((prev) => [product, ...prev]);
+    supabaseService.addProduct(product);
   };
 
   const handleUpdateProduct = (updatedProd: Product) => {
     setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
+    supabaseService.updateProduct(updatedProd);
   };
 
   const handleDeleteProduct = (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+    supabaseService.deleteProduct(id);
   };
 
   const handleRestockProduct = (id: string, additionalQty: number) => {
+    let updatedProductStock = 0;
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, stock: p.stock + additionalQty } : p))
+      prev.map((p) => {
+        if (p.id === id) {
+          updatedProductStock = p.stock + additionalQty;
+          return { ...p, stock: updatedProductStock };
+        }
+        return p;
+      })
     );
+    supabaseService.updateStock(id, updatedProductStock);
   };
 
   // Sale Checkout Handler
@@ -295,14 +253,16 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
 
-    // 1. Deduct Stock
+    // 1. Deduct Stock in State & Supabase DB
     setProducts((prevProducts) =>
       prevProducts.map((p) => {
         const itemInCart = cartItems.find((ci) => ci.product.id === p.id);
         if (itemInCart) {
+          const newStock = Math.max(0, p.stock - itemInCart.quantity);
+          supabaseService.updateStock(p.id, newStock);
           return {
             ...p,
-            stock: Math.max(0, p.stock - itemInCart.quantity),
+            stock: newStock,
           };
         }
         return p;
@@ -311,13 +271,17 @@ export default function App() {
 
     // 2. Handle Customer Debt if paymentType === 'debt'
     if (paymentType === 'debt' && customerId) {
+      let newDebtTotal = 0;
       setCustomers((prevCustomers) =>
-        prevCustomers.map((c) =>
-          c.id === customerId
-            ? { ...c, debtBalance: c.debtBalance + totalAmount }
-            : c
-        )
+        prevCustomers.map((c) => {
+          if (c.id === customerId) {
+            newDebtTotal = c.debtBalance + totalAmount;
+            return { ...c, debtBalance: newDebtTotal };
+          }
+          return c;
+        })
       );
+      supabaseService.updateCustomerDebt(customerId, newDebtTotal);
 
       const newTx: CustomerTransaction = {
         id: `tx-${Date.now()}`,
@@ -330,10 +294,12 @@ export default function App() {
       };
 
       setTransactions((prev) => [newTx, ...prev]);
+      supabaseService.addTransaction(newTx);
     }
 
-    // 3. Save Invoice
+    // 3. Save Invoice in State & Supabase DB
     setInvoices((prev) => [newInvoice, ...prev]);
+    supabaseService.addInvoice(newInvoice);
 
     return newInvoice;
   };
@@ -349,27 +315,34 @@ export default function App() {
       createdAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newCust, ...prev]);
+    supabaseService.addCustomer(newCust);
   };
 
   const handleUpdateCustomer = (updatedCust: Customer) => {
     setCustomers((prev) =>
       prev.map((c) => (c.id === updatedCust.id ? updatedCust : c))
     );
+    supabaseService.updateCustomer(updatedCust);
   };
 
   const handleDeleteCustomer = (id: string) => {
     setCustomers((prev) => prev.filter((c) => c.id !== id));
     setTransactions((prev) => prev.filter((t) => t.customerId !== id));
+    supabaseService.deleteCustomer(id);
   };
 
   const handleRecordPayment = (customerId: string, amount: number, note?: string) => {
+    let updatedDebt = 0;
     setCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId
-          ? { ...c, debtBalance: Math.max(0, c.debtBalance - amount) }
-          : c
-      )
+      prev.map((c) => {
+        if (c.id === customerId) {
+          updatedDebt = Math.max(0, c.debtBalance - amount);
+          return { ...c, debtBalance: updatedDebt };
+        }
+        return c;
+      })
     );
+    supabaseService.updateCustomerDebt(customerId, updatedDebt);
 
     const newTx: CustomerTransaction = {
       id: `tx-${Date.now()}`,
@@ -381,6 +354,7 @@ export default function App() {
     };
 
     setTransactions((prev) => [newTx, ...prev]);
+    supabaseService.addTransaction(newTx);
   };
 
   // Supplier Handlers
@@ -400,25 +374,38 @@ export default function App() {
       notes,
     };
     setSuppliers((prev) => [...prev, newSupp]);
+    supabaseService.addSupplier(newSupp);
   };
 
   const handleUpdateSupplier = (updatedSupp: Supplier) => {
     setSuppliers((prev) =>
       prev.map((s) => (s.id === updatedSupp.id ? updatedSupp : s))
     );
+    supabaseService.updateSupplier(updatedSupp);
   };
 
   const handleDeleteSupplier = (id: string) => {
     setSuppliers((prev) => prev.filter((s) => s.id !== id));
+    supabaseService.deleteSupplier(id);
   };
 
   const handlePaySupplier = (id: string, amountPaid: number) => {
+    let updatedSupp: Supplier | undefined;
     setSuppliers((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, debtToSupplier: Math.max(0, s.debtToSupplier - amountPaid) } : s
-      )
+      prev.map((s) => {
+        if (s.id === id) {
+          const newDebt = Math.max(0, s.debtToSupplier - amountPaid);
+          updatedSupp = { ...s, debtToSupplier: newDebt };
+          return updatedSupp;
+        }
+        return s;
+      })
     );
+    if (updatedSupp) {
+      supabaseService.updateSupplier(updatedSupp);
+    }
   };
+
 
   const lowStockCount = products.filter((p) => p.stock <= p.lowStockAlert).length;
 
@@ -544,7 +531,7 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
-        onSaveSettings={setSettings}
+        onSaveSettings={handleSaveSettings}
         lang={lang}
         onSaveAllData={handleSaveAllData}
         onRestoreData={handleRestoreData}
