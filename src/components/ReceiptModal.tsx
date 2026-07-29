@@ -104,11 +104,36 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       const pdfBlob = pdf.output('blob');
       const fileName = `wesl-${invoice.invoiceNumber}.pdf`;
 
+      // 1. Try Native Web Share API first (Ideal for Mobile / PWA standalone mode)
+      try {
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `وەصڵی فرۆشتن #${invoice.invoiceNumber}`,
+            text: `وەصڵی فرۆشتن #${invoice.invoiceNumber} - ${settings.storeNameKu}`,
+          });
+          return;
+        }
+      } catch (shareErr: any) {
+        // Ignore AbortError if user cancelled the share menu
+        if (shareErr.name === 'AbortError') return;
+        console.warn('Native share failed or unhandled:', shareErr);
+      }
+
+      // 2. jsPDF save method
+      try {
+        pdf.save(fileName);
+        return;
+      } catch (saveErr) {
+        console.warn('jsPDF.save failed, using direct anchor fallback:', saveErr);
+      }
+
+      // 3. Fallback direct anchor download for standalone WebViews (WITHOUT target="_blank" which breaks in PWAs)
       const blobUrl = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = blobUrl;
       link.download = fileName;
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -119,7 +144,11 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
     } catch (err) {
       console.error('Failed to export PDF receipt:', err);
-      window.print();
+      try {
+        window.print();
+      } catch (printErr) {
+        console.error('Print fallback failed:', printErr);
+      }
     } finally {
       setIsExporting(false);
     }
@@ -127,7 +156,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   // Green button 80mm Thermal Receipt Print handler
   const handlePrint80mm = () => {
-    window.print();
+    try {
+      if (typeof window !== 'undefined' && window.print) {
+        window.print();
+      } else {
+        handleExportPDF();
+      }
+    } catch (e) {
+      console.error('Print failed, falling back to PDF:', e);
+      handleExportPDF();
+    }
   };
 
   return (

@@ -14,7 +14,8 @@ import {
   AlertCircle,
   Tag,
   Camera,
-  Volume2
+  Volume2,
+  X
 } from 'lucide-react';
 import { Product, Category, CartItem, Customer, SaleInvoice, Language, Currency } from '../types';
 import { getTranslation } from '../utils/translations';
@@ -39,6 +40,7 @@ interface PosViewProps {
     customerName?: string
   ) => SaleInvoice;
   onPrintInvoice: (invoice: SaleInvoice) => void;
+  onUpdateProduct?: (product: Product) => void;
 }
 
 export const PosView: React.FC<PosViewProps> = ({
@@ -50,6 +52,7 @@ export const PosView: React.FC<PosViewProps> = ({
   exchangeRate,
   onCompleteSale,
   onPrintInvoice,
+  onUpdateProduct,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -60,6 +63,112 @@ export const PosView: React.FC<PosViewProps> = ({
   const [activeItemDiscountId, setActiveItemDiscountId] = useState<string | null>(null);
   const [recentCompletedInvoice, setRecentCompletedInvoice] = useState<SaleInvoice | null>(null);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
+  
+  // Product camera photo state
+  const [photoProduct, setPhotoProduct] = useState<Product | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  const photoVideoRef = useRef<HTMLVideoElement | null>(null);
+  const photoFileInputRef = useRef<HTMLInputElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const openPhotoModal = (product: Product) => {
+    setPhotoProduct(product);
+    setCapturedImage(null);
+    setCameraError(null);
+    setIsCameraActive(true);
+    startLiveCamera();
+  };
+
+  const startLiveCamera = async () => {
+    setCameraError(null);
+    setIsCameraActive(true);
+    try {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+      });
+      mediaStreamRef.current = stream;
+      if (photoVideoRef.current) {
+        photoVideoRef.current.srcObject = stream;
+      }
+    } catch (err: any) {
+      console.error('Camera error:', err);
+      setCameraError(
+        lang === 'ku'
+          ? 'نەتوانرا دەستگەیشتن بە کامێرا پەیدابکرێت. تکایە ڕێگەپێدان بدە یان وێنەیەک لە گەلەری هەڵبژێرە.'
+          : 'Could not access camera. Please check permissions or upload an image.'
+      );
+      setIsCameraActive(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isCameraActive && mediaStreamRef.current && photoVideoRef.current) {
+      photoVideoRef.current.srcObject = mediaStreamRef.current;
+    }
+  }, [isCameraActive, photoProduct, capturedImage]);
+
+  const stopLiveCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  const takeSnapshot = () => {
+    if (!photoVideoRef.current) return;
+    const video = photoVideoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setCapturedImage(dataUrl);
+      stopLiveCamera();
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setCapturedImage(event.target.result as string);
+          stopLiveCamera();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const saveProductPhoto = () => {
+    if (photoProduct && onUpdateProduct) {
+      onUpdateProduct({
+        ...photoProduct,
+        imageUrl: capturedImage || undefined,
+      });
+      showScanToast(
+        lang === 'ku' ? 'وێنەی کاڵاکە بەسەرکەوتوویی خەزنکرا!' : 'Product photo saved successfully!',
+        'success'
+      );
+    }
+    closePhotoModal();
+  };
+
+  const closePhotoModal = () => {
+    stopLiveCamera();
+    setPhotoProduct(null);
+    setCapturedImage(null);
+  };
   
   // Scan feedback toast banner
   const [scanToast, setScanToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
@@ -541,13 +650,43 @@ export const PosView: React.FC<PosViewProps> = ({
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase bg-white/80 backdrop-blur-sm px-2 py-0.5 rounded-md border border-slate-200/50">
-                        {product.unit}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPhotoModal(product);
+                        }}
+                        className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-slate-100/90 hover:bg-amber-100 text-slate-600 hover:text-amber-800 transition border border-slate-200/80 overflow-hidden shrink-0 shadow-2xs cursor-pointer group/cam"
+                        title={lang === 'ku' ? 'گرتنی وێنەی کاڵا بە کامێرا' : 'Take product photo'}
+                      >
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.nameKu}
+                            className="w-full h-full object-cover rounded-xl"
+                          />
+                        ) : (
+                          <Camera className="w-4 h-4 text-slate-600 group-hover/cam:scale-110 transition" />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cam:opacity-100 flex items-center justify-center transition">
+                          <Camera className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </button>
+
                       <span className="text-[10px] font-mono text-slate-400">
                         #{product.barcode}
                       </span>
                     </div>
+
+                    {product.imageUrl && (
+                      <div className="mb-2 w-full h-24 rounded-xl overflow-hidden bg-slate-100 border border-slate-200/60 shadow-inner">
+                        <img
+                          src={product.imageUrl}
+                          alt={product.nameKu}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                        />
+                      </div>
+                    )}
 
                     <h3 className="font-bold text-slate-800 text-sm line-clamp-2 leading-snug mb-2">
                       {lang === 'ku' ? product.nameKu : product.nameEn}
@@ -573,14 +712,20 @@ export const PosView: React.FC<PosViewProps> = ({
                     </div>
 
                     <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}
                       disabled={isOut}
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center transition shadow-xs ${
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold transition shadow-2xs flex items-center justify-center gap-1 ${
                         isOut
-                          ? 'bg-slate-200 text-slate-400'
-                          : 'bg-emerald-100/80 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white'
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-emerald-100/90 text-emerald-800 hover:bg-emerald-600 hover:text-white group-hover:bg-emerald-600 group-hover:text-white cursor-pointer border border-emerald-300/50'
                       }`}
+                      title={lang === 'ku' ? `زیادکردن (${product.unit})` : `Add (${product.unit})`}
                     >
-                      <Plus className="w-4 h-4" />
+                      <span>{product.unit}</span>
                     </button>
                   </div>
                 </div>
@@ -944,6 +1089,134 @@ export const PosView: React.FC<PosViewProps> = ({
         onScan={processBarcodeScan}
         lang={lang}
       />
+
+      {/* Product Camera / Photo Modal */}
+      {photoProduct && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <div className="w-9 h-9 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
+                  <Camera className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">
+                    {lang === 'ku' ? 'گرتنی وێنەی کاڵا' : 'Take Product Photo'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {lang === 'ku' ? photoProduct.nameKu : photoProduct.nameEn}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={closePhotoModal}
+                className="p-1.5 text-slate-400 hover:text-slate-700 bg-white/60 hover:bg-white rounded-xl cursor-pointer transition border border-slate-200/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Display Video, Captured Photo or Placeholder */}
+            <div className="space-y-3">
+              {capturedImage ? (
+                <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner">
+                  <img src={capturedImage} alt="Product Preview" className="w-full h-full object-cover" />
+                </div>
+              ) : isCameraActive ? (
+                <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-black border border-slate-200">
+                  <video ref={photoVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                </div>
+              ) : photoProduct.imageUrl ? (
+                <div className="relative w-full h-56 rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 shadow-inner">
+                  <img src={photoProduct.imageUrl} alt="Product Preview" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-full h-56 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center text-slate-500">
+                  <Camera className="w-12 h-12 text-slate-400 mb-2" />
+                  <p className="text-xs font-semibold">
+                    {lang === 'ku' ? 'وێنەیەک بە کامێرا بگرە یان لە گەلەری هەڵبژێرە' : 'Take a live photo or choose an image'}
+                  </p>
+                </div>
+              )}
+
+              {cameraError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium">
+                  {cameraError}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                {!isCameraActive && (
+                  <button
+                    type="button"
+                    onClick={startLiveCamera}
+                    className="flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>{lang === 'ku' ? 'دوبارە ڕاگەیاندنی کامێرا' : 'Start Camera'}</span>
+                  </button>
+                )}
+
+                {isCameraActive && (
+                  <button
+                    type="button"
+                    onClick={takeSnapshot}
+                    className="flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>{lang === 'ku' ? 'گرتنی وێنە' : 'Snap Photo'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => photoFileInputRef.current?.click()}
+                  className="py-2.5 px-3 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>{lang === 'ku' ? 'هەڵبژاردنی وێنە' : 'Upload Image'}</span>
+                </button>
+
+                <input
+                  ref={photoFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-end gap-2">
+              {capturedImage && (
+                <button
+                  type="button"
+                  onClick={() => setCapturedImage(null)}
+                  className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold transition"
+                >
+                  {lang === 'ku' ? 'سڕینەوەی وێنە' : 'Clear Photo'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={closePhotoModal}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                {getTranslation(lang, 'cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={saveProductPhoto}
+                className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+              >
+                {getTranslation(lang, 'save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

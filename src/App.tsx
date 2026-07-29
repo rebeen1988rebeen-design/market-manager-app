@@ -601,6 +601,7 @@ export default function App() {
             exchangeRate={settings.exchangeRate}
             onCompleteSale={handleCompleteSale}
             onPrintInvoice={(inv) => setActiveReceiptInvoice(inv)}
+            onUpdateProduct={handleUpdateProduct}
           />
         )}
 
