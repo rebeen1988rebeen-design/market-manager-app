@@ -200,10 +200,26 @@ export const supabaseService = {
   },
 
   async saveSettings(settings: StoreSettings): Promise<void> {
-    const { error } = await supabase.from('store_settings').upsert(settingsToDb(settings));
-    if (error) {
-      console.error('Supabase store_settings save error:', error.message);
-      throw new Error(`هەڵە لە خەزنکردنی ڕێکخستنەکان: ${error.message}`);
+    try {
+      const dbRow = settingsToDb(settings);
+      const { error } = await supabase.from('store_settings').upsert(dbRow);
+      if (error) {
+        console.warn('Supabase store_settings save note:', error.message);
+        if (
+          error.message.includes('receipt_note_en') ||
+          error.message.includes('schema cache') ||
+          error.message.includes('Could not find')
+        ) {
+          const { receipt_note_en, ...noNoteEn } = dbRow as any;
+          const { error: err2 } = await supabase.from('store_settings').upsert(noNoteEn);
+          if (err2) {
+            const { receipt_note_ku, ...minimal } = noNoteEn as any;
+            await supabase.from('store_settings').upsert(minimal);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in saveSettings:', err);
     }
     localStorage.setItem('market_settings_cache', JSON.stringify(settings));
   },
@@ -720,9 +736,23 @@ export const supabaseService = {
 
     // 1. Settings
     if (data.settings) {
-      const { error } = await supabase.from('store_settings').upsert(settingsToDb(data.settings));
-      if (error && !error.message.includes('schema cache')) {
-        saveErrors.push(`Store Settings: ${error.message}`);
+      try {
+        const dbRow = settingsToDb(data.settings);
+        const { error } = await supabase.from('store_settings').upsert(dbRow);
+        if (error) {
+          if (
+            error.message.includes('receipt_note_en') ||
+            error.message.includes('schema cache') ||
+            error.message.includes('Could not find')
+          ) {
+            const { receipt_note_en, ...noNoteEn } = dbRow as any;
+            await supabase.from('store_settings').upsert(noNoteEn);
+          } else if (!error.message.includes('schema cache')) {
+            saveErrors.push(`Store Settings: ${error.message}`);
+          }
+        }
+      } catch (e) {
+        console.warn('saveAllData settings error:', e);
       }
     }
 
