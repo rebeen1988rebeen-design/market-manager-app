@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import { SaleInvoice, StoreSettings, Language, Currency } from '../types';
 import { getTranslation } from '../utils/translations';
 import { formatCurrency, formatDate } from '../utils/formatters';
+import { downloadOrShareFile } from '../utils/fileDownloader';
 
 interface ReceiptModalProps {
   invoice: SaleInvoice | null;
@@ -104,43 +105,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       const pdfBlob = pdf.output('blob');
       const fileName = `wesl-${invoice.invoiceNumber}.pdf`;
 
-      // 1. Try Native Web Share API first (Ideal for Mobile / PWA standalone mode)
-      try {
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `وەصڵی فرۆشتن #${invoice.invoiceNumber}`,
-            text: `وەصڵی فرۆشتن #${invoice.invoiceNumber} - ${settings.storeNameKu}`,
-          });
-          return;
-        }
-      } catch (shareErr: any) {
-        // Ignore AbortError if user cancelled the share menu
-        if (shareErr.name === 'AbortError') return;
-        console.warn('Native share failed or unhandled:', shareErr);
-      }
-
-      // 2. jsPDF save method
-      try {
-        pdf.save(fileName);
-        return;
-      } catch (saveErr) {
-        console.warn('jsPDF.save failed, using direct anchor fallback:', saveErr);
-      }
-
-      // 3. Fallback direct anchor download for standalone WebViews (WITHOUT target="_blank" which breaks in PWAs)
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 60000);
+      await downloadOrShareFile({
+        fileBits: [pdfBlob],
+        fileName,
+        mimeType: 'application/pdf',
+        title: `وەصڵی فرۆشتن #${invoice.invoiceNumber}`,
+        text: `وەصڵی فرۆشتن #${invoice.invoiceNumber} - ${settings.storeNameKu}`,
+      });
 
     } catch (err) {
       console.error('Failed to export PDF receipt:', err);
@@ -155,16 +126,31 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   // Green button 80mm Thermal Receipt Print handler
-  const handlePrint80mm = () => {
+  const handlePrint80mm = async () => {
+    setIsPrinting(true);
     try {
+      const isStandalone =
+        typeof window !== 'undefined' &&
+        ((window.navigator as any).standalone === true ||
+          window.matchMedia('(display-mode: standalone)').matches);
+
+      if (isStandalone) {
+        // In iOS PWA standalone mode, window.print() is disabled by Safari.
+        // Export PDF with Web Share API so native Share Sheet opens with Print option!
+        await handleExportPDF();
+        return;
+      }
+
       if (typeof window !== 'undefined' && window.print) {
         window.print();
       } else {
-        handleExportPDF();
+        await handleExportPDF();
       }
     } catch (e) {
       console.error('Print failed, falling back to PDF:', e);
-      handleExportPDF();
+      await handleExportPDF();
+    } finally {
+      setIsPrinting(false);
     }
   };
 

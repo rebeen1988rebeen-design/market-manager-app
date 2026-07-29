@@ -1,6 +1,7 @@
 // Utility to bundle and export the entire app into a single downloadable HTML file
+import { downloadOrShareFile } from './fileDownloader';
 
-export const exportToSingleHtmlFile = () => {
+export const exportToSingleHtmlFile = async () => {
   // Read current local storage or fallback defaults
   const currentProducts = localStorage.getItem('market_products') || '[]';
   const currentCategories = localStorage.getItem('market_categories') || '[]';
@@ -832,16 +833,25 @@ export const exportToSingleHtmlFile = () => {
 
                   <div className="pt-4 flex gap-3">
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const fullBackup = {
                           products, categories, customers, invoices, suppliers, storeSettings,
                           exportedAt: new Date().toISOString()
                         };
-                        const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
+                        const jsonStr = JSON.stringify(fullBackup, null, 2);
+                        const fileName = 'Market_Manager_Backup.json';
+                        const file = new File([jsonStr], fileName, { type: 'application/json' });
+                        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          try {
+                            await navigator.share({ files: [file], title: 'Market Backup' });
+                            return;
+                          } catch(e) {}
+                        }
+                        const blob = new Blob([jsonStr], { type: 'application/json' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
-                        a.download = 'Market_Manager_Backup.json';
+                        a.download = fileName;
                         a.click();
                       }}
                       className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold cursor-pointer"
@@ -870,14 +880,13 @@ export const exportToSingleHtmlFile = () => {
 </body>
 </html>`;
 
-  // Trigger file download
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Market_Manager_${new Date().toISOString().slice(0, 10)}.html`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Trigger file download or share
+  const fileName = `Market_Manager_${new Date().toISOString().slice(0, 10)}.html`;
+  await downloadOrShareFile({
+    fileBits: [htmlContent],
+    fileName,
+    mimeType: 'text/html;charset=utf-8',
+    title: 'Market Manager HTML App',
+    text: `Market Manager System HTML Bundle (${fileName})`,
+  });
 };

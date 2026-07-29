@@ -32,6 +32,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { getTranslation } from './utils/translations';
 import { supabaseService } from './lib/supabaseService';
+import { downloadOrShareFile } from './utils/fileDownloader';
 
 export default function App() {
   // Core Settings
@@ -164,13 +165,15 @@ export default function App() {
         invoices,
       };
 
-      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', dataStr);
-      downloadAnchor.setAttribute('download', `market-backup-${new Date().toISOString().slice(0, 10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const fileName = `market-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      await downloadOrShareFile({
+        fileBits: [jsonStr],
+        fileName,
+        mimeType: 'application/json',
+        title: 'Market Backup',
+        text: `Market management system backup (${fileName})`,
+      });
 
       setShowSaveToast(true);
       setTimeout(() => {
@@ -226,15 +229,14 @@ export default function App() {
       };
 
       const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', url);
-      downloadAnchor.setAttribute('download', `market_backup_${todayStr}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      URL.revokeObjectURL(url);
+      const fileName = `market_backup_${todayStr}.json`;
+      await downloadOrShareFile({
+        fileBits: [jsonStr],
+        fileName,
+        mimeType: 'application/json',
+        title: 'Market Backup',
+        text: `Market backup file (${fileName})`,
+      });
     } catch (err) {
       console.error('Backup export error:', err);
       const todayStr = new Date().toISOString().split('T')[0];
@@ -252,15 +254,14 @@ export default function App() {
         transactions,
       };
       const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute('href', url);
-      downloadAnchor.setAttribute('download', `market_backup_${todayStr}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      URL.revokeObjectURL(url);
+      const fileName = `market_backup_${todayStr}.json`;
+      await downloadOrShareFile({
+        fileBits: [jsonStr],
+        fileName,
+        mimeType: 'application/json',
+        title: 'Market Backup',
+        text: `Market backup file (${fileName})`,
+      });
     } finally {
       setIsSyncing(false);
     }

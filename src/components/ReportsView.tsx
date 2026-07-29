@@ -32,6 +32,7 @@ import autoTable from 'jspdf-autotable';
 import { SaleInvoice, Product, Category, Customer, Language, Currency } from '../types';
 import { getTranslation } from '../utils/translations';
 import { formatCurrency } from '../utils/formatters';
+import { downloadOrShareFile } from '../utils/fileDownloader';
 
 interface ReportsViewProps {
   invoices: SaleInvoice[];
@@ -267,20 +268,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         const dateStr = new Date().toISOString().slice(0, 10);
         const fileName = `raporti-froshtn-ku-${filterRange}-${dateStr}.pdf`;
 
-        // Generate blob for reliable iOS / Safari / Chrome PDF download
         const pdfBlob = pdf.output('blob');
-        const blobUrl = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = fileName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-        }, 60000);
+        await downloadOrShareFile({
+          fileBits: [pdfBlob],
+          fileName,
+          mimeType: 'application/pdf',
+          title: `ڕاپۆرتی فرۆشتن (${filterRange})`,
+          text: `Sales Report PDF (${fileName})`,
+        });
       } catch (err) {
         console.error('PDF generation error:', err);
         window.print();
