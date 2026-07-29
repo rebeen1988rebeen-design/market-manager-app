@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { X, Settings, Store, DollarSign, Phone, MapPin, FileText, Check, Save, FolderInput, Database, FileCode } from 'lucide-react';
+import { X, Settings, Store, DollarSign, Phone, MapPin, FileText, Check, Save, FolderInput, Database, FileCode, Download } from 'lucide-react';
 import { StoreSettings, Language } from '../types';
 import { getTranslation } from '../utils/translations';
 import { exportToSingleHtmlFile } from '../utils/singleHtmlExporter';
@@ -12,6 +12,7 @@ interface SettingsModalProps {
   lang: Language;
   onSaveAllData?: () => void;
   onRestoreData?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onExportBackup?: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -22,6 +23,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   lang,
   onSaveAllData,
   onRestoreData,
+  onExportBackup,
 }) => {
   const [formData, setFormData] = useState<StoreSettings>({ ...settings });
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -147,6 +149,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </p>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
+              {onExportBackup && (
+                <button
+                  type="button"
+                  onClick={onExportBackup}
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 transition cursor-pointer text-xs shadow-xs"
+                >
+                  <Download className="w-3.5 h-3.5 text-white" />
+                  <span>{lang === 'ku' ? 'داگرتنی یەدەگ (Backup)' : 'Export Backup'}</span>
+                </button>
+              )}
+
               {onSaveAllData && (
                 <button
                   type="button"

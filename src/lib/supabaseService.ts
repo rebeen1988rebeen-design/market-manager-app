@@ -494,9 +494,18 @@ export const supabaseService = {
   },
 
   async addSupplier(supplier: Supplier): Promise<void> {
-    const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
-    if (error) {
-      console.error('Supabase supplier save error:', error.message);
+    try {
+      const dbRow = supplierToDb(supplier);
+      const { error } = await supabase.from('suppliers').upsert(dbRow);
+      if (error) {
+        console.warn('Supabase supplier save note:', error.message);
+        if (error.message.includes('company') || error.message.includes('schema cache')) {
+          const { company, ...noCompany } = dbRow as any;
+          await supabase.from('suppliers').upsert(noCompany);
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in addSupplier:', err);
     }
     try {
       const cached = localStorage.getItem('market_suppliers_cache');
@@ -509,9 +518,18 @@ export const supabaseService = {
   },
 
   async updateSupplier(supplier: Supplier): Promise<void> {
-    const { error } = await supabase.from('suppliers').upsert(supplierToDb(supplier));
-    if (error) {
-      console.error('Supabase supplier update error:', error.message);
+    try {
+      const dbRow = supplierToDb(supplier);
+      const { error } = await supabase.from('suppliers').upsert(dbRow);
+      if (error) {
+        console.warn('Supabase supplier update note:', error.message);
+        if (error.message.includes('company') || error.message.includes('schema cache')) {
+          const { company, ...noCompany } = dbRow as any;
+          await supabase.from('suppliers').upsert(noCompany);
+        }
+      }
+    } catch (err) {
+      console.warn('Catch error in updateSupplier:', err);
     }
     try {
       const cached = localStorage.getItem('market_suppliers_cache');

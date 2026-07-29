@@ -188,6 +188,84 @@ export default function App() {
     }
   };
 
+  // Dedicated Backup Export handler with today's date in filename
+  const handleBackupExport = async () => {
+    setIsSyncing(true);
+    try {
+      const [
+        dbProducts,
+        dbInvoices,
+        dbCustomers,
+        dbSuppliers,
+        dbCategories,
+        dbTransactions,
+        dbSettings,
+      ] = await Promise.all([
+        supabaseService.getProducts().catch(() => products),
+        supabaseService.getInvoices().catch(() => invoices),
+        supabaseService.getCustomers().catch(() => customers),
+        supabaseService.getSuppliers().catch(() => suppliers),
+        supabaseService.getCategories().catch(() => categories),
+        supabaseService.getTransactions().catch(() => transactions),
+        supabaseService.getSettings().catch(() => settings),
+      ]);
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      const backupData = {
+        app: 'MarketManagementSystem',
+        exportDate: new Date().toISOString(),
+        backupDate: todayStr,
+        settings: dbSettings || settings,
+        products: dbProducts && dbProducts.length > 0 ? dbProducts : products,
+        sales: dbInvoices && dbInvoices.length > 0 ? dbInvoices : invoices,
+        invoices: dbInvoices && dbInvoices.length > 0 ? dbInvoices : invoices,
+        customers: dbCustomers && dbCustomers.length > 0 ? dbCustomers : customers,
+        suppliers: dbSuppliers && dbSuppliers.length > 0 ? dbSuppliers : suppliers,
+        categories: dbCategories && dbCategories.length > 0 ? dbCategories : categories,
+        transactions: dbTransactions && dbTransactions.length > 0 ? dbTransactions : transactions,
+      };
+
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', url);
+      downloadAnchor.setAttribute('download', `market_backup_${todayStr}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Backup export error:', err);
+      const todayStr = new Date().toISOString().split('T')[0];
+      const backupData = {
+        app: 'MarketManagementSystem',
+        exportDate: new Date().toISOString(),
+        backupDate: todayStr,
+        settings,
+        products,
+        sales: invoices,
+        invoices,
+        customers,
+        suppliers,
+        categories,
+        transactions,
+      };
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute('href', url);
+      downloadAnchor.setAttribute('download', `market_backup_${todayStr}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Save settings handler
   const handleSaveSettings = async (newSettings: StoreSettings) => {
     setSettings(newSettings);
@@ -600,6 +678,7 @@ export default function App() {
         lang={lang}
         onSaveAllData={handleSaveAllData}
         onRestoreData={handleRestoreData}
+        onExportBackup={handleBackupExport}
       />
 
       <ReceiptModal
