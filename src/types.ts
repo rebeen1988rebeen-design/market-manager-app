@@ -41,6 +41,8 @@ export interface SaleInvoice {
   paymentType: 'cash' | 'debt';
   customerId?: string;
   customerName?: string;
+  paidAmount?: number;
+  changeAmount?: number;
   createdAt: string; // ISO string
 }
 

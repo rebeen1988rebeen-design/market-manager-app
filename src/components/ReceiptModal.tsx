@@ -207,38 +207,44 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         </div>
 
-        {/* Printable Thermal Receipt Container */}
+        {/* Printable Thermal / Compact Report Receipt Container */}
         <div
           ref={receiptRef}
           dir="rtl"
-          className="printable-receipt flex-1 overflow-y-auto p-5 bg-[#F9F7F2] border border-dashed border-slate-300 rounded-xl font-sans text-slate-900 text-xs space-y-4 print:p-0 print:border-none print:bg-white print:text-black"
+          className="printable-receipt flex-1 overflow-y-auto p-4 bg-white border border-slate-200 rounded-2xl font-sans text-slate-900 text-xs space-y-3.5 print:p-0 print:border-none print:bg-white print:text-black shadow-sm"
         >
-          
-          {/* Header */}
-          <div className="text-center space-y-1 pb-3 border-b-2 border-slate-400 border-dashed">
-            <Store className="w-7 h-7 mx-auto text-[#D97706]" />
-            <h2 className="font-extrabold text-base text-slate-900 font-serif">
+          {/* Executive Store Header Banner */}
+          <div className="text-center p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1">
+            <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/10 text-amber-700 mb-0.5">
+              <Store className="w-4 h-4 text-[#D97706]" />
+            </div>
+            <h2 className="font-extrabold text-sm text-slate-900">
               {lang === 'ku' ? settings.storeNameKu : settings.storeNameEn}
             </h2>
             {settings.address && (
-              <p className="text-[11px] text-slate-600 font-medium">{settings.address}</p>
+              <p className="text-[10px] text-slate-600 font-medium">{settings.address}</p>
             )}
             {settings.phone && (
-              <p className="text-[11px] text-slate-600 font-medium font-mono" dir="ltr">
-                تەلەفۆن: {settings.phone}
+              <p className="text-[10px] text-slate-600 font-medium font-mono" dir="ltr">
+                {settings.phone}
               </p>
             )}
+            <div className="pt-1.5 mt-1 border-t border-slate-200/80">
+              <span className="inline-block px-2.5 py-0.5 rounded-md bg-slate-200/80 text-slate-800 text-[10px] font-bold">
+                {lang === 'ku' ? 'وەصڵی فەرمی فرۆشتن' : 'Official Sales Invoice'}
+              </span>
+            </div>
           </div>
 
-          {/* Invoice Meta */}
-          <div className="space-y-1.5 text-[11px] pb-2 border-b border-slate-300 border-dashed">
-            <div className="flex justify-between items-center">
+          {/* Invoice Metadata Grid Card */}
+          <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-1.5 text-[11px]">
+            <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
               <span className="text-slate-600 font-semibold">{getTranslation(lang, 'receiptNo')}:</span>
-              <span className="font-extrabold font-mono text-slate-900">{invoice.invoiceNumber}</span>
+              <span className="font-extrabold font-mono text-[#D97706] text-xs">#{invoice.invoiceNumber}</span>
             </div>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center pb-1 border-b border-slate-200/60">
               <span className="text-slate-600 font-semibold">{getTranslation(lang, 'date')}:</span>
-              <span className="font-medium font-mono">{formatDate(invoice.createdAt, lang)}</span>
+              <span className="font-medium font-mono text-slate-800">{formatDate(invoice.createdAt, lang)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-600 font-semibold">{getTranslation(lang, 'customerType')}:</span>
@@ -250,45 +256,52 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           </div>
 
-          {/* Items Table */}
-          <div className="space-y-2 py-1 border-b border-slate-300 border-dashed">
-            <div className="flex justify-between font-extrabold text-[11px] text-slate-700 bg-slate-200/60 p-1.5 rounded-md">
-              <span className="flex-1 text-right">ناوی کاڵا</span>
-              <span className="w-20 text-center">بڕ × نرخ</span>
-              <span className="w-20 text-left">کۆی گشتی</span>
-            </div>
+          {/* Items Table - Report Style */}
+          <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+            <table className="w-full text-right text-[11px]">
+              <thead className="font-bold border-b border-slate-200 bg-slate-100/80 text-slate-800">
+                <tr>
+                  <th className="p-2 w-7 text-center">#</th>
+                  <th className="p-2 text-right">ناوی کاڵا</th>
+                  <th className="p-2 text-center">بڕ × نرخ</th>
+                  <th className="p-2 text-left">کۆی گشتی</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-800">
+                {invoice.items.map((item, idx) => {
+                  const itemDiscount = item.itemDiscount || 0;
+                  const effectivePrice = Math.max(0, item.price - itemDiscount);
+                  const isItemDiscounted = itemDiscount > 0;
 
-            {invoice.items.map((item, idx) => {
-              const itemDiscount = item.itemDiscount || 0;
-              const effectivePrice = Math.max(0, item.price - itemDiscount);
-              const isItemDiscounted = itemDiscount > 0;
-
-              return (
-                <div key={idx} className="flex justify-between items-center text-[11px] py-0.5 border-b border-slate-100 last:border-none">
-                  <div className="flex-1 pr-1 font-bold text-slate-900">
-                    <div>{lang === 'ku' ? item.product.nameKu : item.product.nameEn}</div>
-                    {isItemDiscounted && (
-                      <div className="text-[9px] text-amber-700 font-semibold">
-                        {lang === 'ku' ? 'داشکاندنی کاڵا:' : 'Item Discount:'} -{formatCurrency(itemDiscount, currency, exchangeRate)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="w-20 text-center font-mono text-slate-700">
-                    {item.quantity} × {formatCurrency(effectivePrice, currency, exchangeRate)}
-                  </div>
-                  <div className="w-20 text-left font-mono font-bold text-slate-900">
-                    {formatCurrency(item.total, currency, exchangeRate)}
-                  </div>
-                </div>
-              );
-            })}
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="p-2 text-center font-mono font-bold text-slate-400 text-[10px]">{idx + 1}</td>
+                      <td className="p-2 font-bold text-slate-900">
+                        <div>{lang === 'ku' ? item.product.nameKu : item.product.nameEn}</div>
+                        {isItemDiscounted && (
+                          <div className="text-[9px] text-amber-700 font-medium">
+                            {lang === 'ku' ? 'داشکاندن:' : 'Discount:'} -{formatCurrency(itemDiscount, currency, exchangeRate)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-2 text-center font-mono text-slate-700 whitespace-nowrap text-[10px]">
+                        {item.quantity} × {formatCurrency(effectivePrice, currency, exchangeRate)}
+                      </td>
+                      <td className="p-2 text-left font-mono font-bold text-slate-900 whitespace-nowrap">
+                        {formatCurrency(item.total, currency, exchangeRate)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
 
-          {/* Totals */}
-          <div className="space-y-1.5 pt-1 text-[11px]">
-            <div className="flex justify-between text-slate-700 font-medium">
+          {/* Totals & Financial Breakdown Box */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-2.5 space-y-1.5 text-[11px]">
+            <div className="flex justify-between text-slate-600 font-medium">
               <span>{getTranslation(lang, 'subtotal')}:</span>
-              <span className="font-mono font-bold">{formatCurrency(invoice.subtotal, currency, exchangeRate)}</span>
+              <span className="font-mono font-bold text-slate-900">{formatCurrency(invoice.subtotal, currency, exchangeRate)}</span>
             </div>
 
             {invoice.discount > 0 && (
@@ -298,16 +311,38 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </div>
             )}
 
-            <div className="flex justify-between text-sm font-black pt-2 border-t-2 border-slate-900 text-slate-900">
+            {/* Main Net Total Banner */}
+            <div className="flex justify-between items-center text-xs font-black p-2 rounded-lg bg-amber-100/80 border border-amber-300 text-amber-950 my-1">
               <span>{getTranslation(lang, 'total')}:</span>
-              <span className="font-mono text-amber-700">{formatCurrency(invoice.totalAmount, currency, exchangeRate)}</span>
+              <span className="font-mono text-sm font-extrabold text-[#B45309]">
+                {formatCurrency(invoice.totalAmount, currency, exchangeRate)}
+              </span>
             </div>
+
+            {invoice.paidAmount !== undefined && invoice.paidAmount > 0 && (
+              <div className="flex justify-between text-slate-700 font-medium pt-1 border-t border-slate-200">
+                <span>{lang === 'ku' ? 'پارەی وەرگیراو لە کڕیار:' : 'Cash Received:'}</span>
+                <span className="font-mono font-bold text-slate-900">{formatCurrency(invoice.paidAmount, currency, exchangeRate)}</span>
+              </div>
+            )}
+
+            {invoice.changeAmount !== undefined && (
+              <div className="flex justify-between items-center text-xs font-extrabold p-2 rounded-lg bg-emerald-100/80 border border-emerald-300 text-emerald-950 mt-1">
+                <span>{lang === 'ku' ? 'باقی (گەڕاوە بۆ کڕیار):' : 'Change Return:'}</span>
+                <span className="font-mono text-sm font-extrabold text-[#047857]">
+                  {formatCurrency(invoice.changeAmount, currency, exchangeRate)}
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Footer Note */}
-          <div className="text-center pt-3 border-t border-slate-300 border-dashed text-[11px] text-slate-600 space-y-1">
-            <p className="font-medium">{lang === 'ku' ? settings.receiptNoteKu : settings.receiptNoteEn}</p>
-            <p className="font-bold text-slate-800">{getTranslation(lang, 'thanksMessage')}</p>
+          {/* Report Style Footer Note */}
+          <div className="text-center pt-2.5 border-t border-slate-200 text-[10px] text-slate-500 space-y-0.5">
+            <p className="font-medium text-slate-700">{lang === 'ku' ? settings.receiptNoteKu : settings.receiptNoteEn}</p>
+            <p className="font-bold text-slate-900">{getTranslation(lang, 'thanksMessage')}</p>
+            <p className="text-[9px] text-slate-400 pt-1">
+              سیستەمی بەڕێوەبردنی مارکێت • ڕاپۆرتی فەرمی فرۆشتن
+            </p>
           </div>
         </div>
       </div>

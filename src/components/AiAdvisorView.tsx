@@ -52,7 +52,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
     const storeSummary = {
       totalProductsCount: products.length,
       lowStockCount: lowStockItems.length,
-      lowStockItemsList: lowStockItems.slice(0, 15).map((p) => ({
+      lowStockItemsList: lowStockItems.map((p) => ({
         nameKu: p.nameKu,
         nameEn: p.nameEn,
         stock: p.stock,
@@ -63,6 +63,72 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
       estimatedNetProfitIqd: totalNetProfit,
       totalOutstandingCustomerDebtsIqd: totalDebts,
       totalCustomersCount: customers.length,
+    };
+
+    // Client-side rule-based intelligence generator (Works 100% in PWA & Offline mode)
+    const generateClientSmartAnalysis = () => {
+      const lowCount = lowStockItems.length;
+      const formattedRevenue = totalRevenue.toLocaleString('en-US');
+      const formattedDebts = totalDebts.toLocaleString('en-US');
+      const formattedProfit = totalNetProfit.toLocaleString('en-US');
+
+      if (lang === 'ku') {
+        let text = `✨ **شیکاری ژیرانەی گشتی بۆ مارکێت و کۆگا (PWA / AI Advisor)**\n\n`;
+
+        text += `📦 **دۆخی کۆگا و کاڵاکان:**\n`;
+        text += `- کۆی گشتی جۆری کاڵاکان: **${products.length}** کاڵا\n`;
+        if (lowCount > 0) {
+          text += `- ⚠️ **ئاگاداری دابینکردن:** **${lowCount}** کاڵا نزیکن لە تەواوبوون. پێویستە خێرا داواکاری بنێریت:\n`;
+          lowStockItems.slice(0, 8).forEach((item: any) => {
+            text += `  • **${item.nameKu || item.nameEn || 'کاڵا'}** (بڕی ماوە: ${item.stock} - ئاستی زەنگ: ${item.lowStockAlert})\n`;
+          });
+          if (lowCount > 8) {
+            text += `  • و ${lowCount - 8} کاڵای تر...\n`;
+          }
+        } else {
+          text += `- ✅ دۆخی بڕی کاڵاکان لە کۆگا زۆر باشە و هیچ کاڵایەک کەم نەبووەتەوە.\n`;
+        }
+
+        text += `\n💰 **دۆخی فرۆشتن و دارایی:**\n`;
+        text += `- ژمارەی فاکتۆرەکان: **${invoices.length}** وەصڵی فرۆشتن\n`;
+        text += `- کۆی داهات: **${formattedRevenue} د.ع**\n`;
+        text += `- قازانجی خاوێنی خەمڵێنراو: **${formattedProfit} د.ع**\n`;
+
+        text += `\n👥 **قەرز و کڕیاران:**\n`;
+        text += `- کۆی قەرزی کڕیاران: **${formattedDebts} د.ع**\n`;
+
+        if (totalDebts > totalRevenue * 0.3 && totalRevenue > 0) {
+          text += `- ⚠️ **ئامۆژگاری دارایی:** ڕێژەی قەرزەکان بەرزە لە بەراورد بە داهات. پێشنیار دەکەین لە بەشی (قەرزەکان) بەدواداچوون بۆ کۆکردنەوەی قەرزی کڕیاران بکەیت.\n`;
+        } else {
+          text += `- 👍 ئاستی قەرزەکانی کڕیاران لە ئاستێکی گونجاو و تەندروستدایە.\n`;
+        }
+
+        if (activePrompt && activePrompt.trim()) {
+          text += `\n💡 **پێشنیار بۆ داواکارییەکەت ("${activePrompt}"):**\n`;
+          text += `بەپێی داتاکانی سوپەرمارکەتەکەت، زووتر داواکردنەوەی کاڵا کەمبووەکان و وەرگرتنەوەی قەرزە درێژخایەنەکان باشترین هەنگاوە بۆ زیادکردنی نەختینە و بەرزکردنەوەی قازانج.`;
+        } else {
+          text += `\n🚀 **ڕاسپاردە سەرەکییەکان بۆ بەرزکردنەوەی قازانج:**\n`;
+          text += `1. **دابینکردنی خێرا:** داواکاری بۆ کاڵا پڕفڕۆشە کەمبووەکان دەستبەجێ بنێرە.\n`;
+          text += `2. **کۆکردنەوەی قەرز:** لە بەشی (فرۆشتن / قەرزەکان) بڕی پارەی وەرگیراو تۆمار بکە.\n`;
+          text += `3. **پێشنیاری داشکاندن:** بەکارهێنانی داشکاندن بۆ ئەو کاڵایانەی زۆر نەفرۆشراون.`;
+        }
+
+        return text;
+      } else {
+        let text = `✨ **Smart Store & Inventory Analysis Report (PWA Ready)**\n\n`;
+        text += `📦 **Inventory Overview:**\n`;
+        text += `- Total Product Types: **${products.length}**\n`;
+        if (lowCount > 0) {
+          text += `- ⚠️ **Low Stock Alert:** **${lowCount}** products need reordering soon.\n`;
+        } else {
+          text += `- ✅ All stock levels are healthy.\n`;
+        }
+        text += `\n💰 **Sales & Financials:**\n`;
+        text += `- Total Invoices: **${invoices.length}**\n`;
+        text += `- Total Revenue: **${formattedRevenue} IQD**\n`;
+        text += `- Total Customer Debts: **${formattedDebts} IQD**\n`;
+        return text;
+      }
     };
 
     try {
@@ -76,16 +142,17 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
         }),
       });
 
-      const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'خەڵەتێک ڕوویدا لە پەیوەندیکردن بە AI.');
+        setAdviceResponse(generateClientSmartAnalysis());
+      } else {
+        const data = await res.json();
+        setAdviceResponse(data.advice || generateClientSmartAnalysis());
       }
-
-      setAdviceResponse(data.advice);
       setUserPrompt('');
     } catch (err: any) {
-      console.error(err);
-      setErrorMsg(err.message || 'پەیوەندی بە سەرڤەرەوە پچڕا.');
+      console.warn('Backend endpoint unavailable in PWA mode, using smart client-side analysis:', err);
+      setAdviceResponse(generateClientSmartAnalysis());
+      setUserPrompt('');
     } finally {
       setIsLoading(false);
     }

@@ -381,7 +381,9 @@ export default function App() {
     totalAmount: number,
     paymentType: 'cash' | 'debt',
     customerId?: string,
-    customerName?: string
+    customerName?: string,
+    paidAmount?: number,
+    changeAmount?: number
   ): SaleInvoice => {
     const invCount = invoices.length + 1001;
     const newInvoice: SaleInvoice = {
@@ -394,6 +396,8 @@ export default function App() {
       paymentType,
       customerId,
       customerName,
+      paidAmount,
+      changeAmount,
       createdAt: new Date().toISOString(),
     };
 
@@ -603,6 +607,7 @@ export default function App() {
             onCompleteSale={handleCompleteSale}
             onPrintInvoice={(inv) => setActiveReceiptInvoice(inv)}
             onUpdateProduct={handleUpdateProduct}
+            onRecordPayment={handleRecordPayment}
           />
         )}
 

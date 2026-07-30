@@ -41,6 +41,7 @@ interface PosViewProps {
   ) => SaleInvoice;
   onPrintInvoice: (invoice: SaleInvoice) => void;
   onUpdateProduct?: (product: Product) => void;
+  onRecordPayment?: (customerId: string, amount: number, note?: string) => void;
 }
 
 export const PosView: React.FC<PosViewProps> = ({
@@ -53,6 +54,7 @@ export const PosView: React.FC<PosViewProps> = ({
   onCompleteSale,
   onPrintInvoice,
   onUpdateProduct,
+  onRecordPayment,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -60,9 +62,14 @@ export const PosView: React.FC<PosViewProps> = ({
   const [paymentType, setPaymentType] = useState<'cash' | 'debt'>('cash');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [receivedCash, setReceivedCash] = useState<number | ''>('');
   const [activeItemDiscountId, setActiveItemDiscountId] = useState<string | null>(null);
   const [recentCompletedInvoice, setRecentCompletedInvoice] = useState<SaleInvoice | null>(null);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
+  const [isQuickPaymentModalOpen, setIsQuickPaymentModalOpen] = useState<boolean>(false);
+  const [payCustomerId, setPayCustomerId] = useState<string>('');
+  const [payAmount, setPayAmount] = useState<number | ''>('');
+  const [payNote, setPayNote] = useState<string>('');
   
   // Product camera photo state
   const [photoProduct, setPhotoProduct] = useState<Product | null>(null);
@@ -481,6 +488,10 @@ export const PosView: React.FC<PosViewProps> = ({
   const discountAmount = Math.round((subtotal * discountPercent) / 100);
   const finalTotal = Math.max(0, subtotal - discountAmount);
 
+  const numReceivedCash = typeof receivedCash === 'number' ? receivedCash : 0;
+  const changeReturn = numReceivedCash > 0 ? Math.max(0, numReceivedCash - finalTotal) : 0;
+  const cashShortage = (numReceivedCash > 0 && numReceivedCash < finalTotal) ? finalTotal - numReceivedCash : 0;
+
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
@@ -498,12 +509,15 @@ export const PosView: React.FC<PosViewProps> = ({
       finalTotal,
       paymentType,
       selectedCustomerId,
-      customerObj?.name
+      customerObj?.name,
+      paymentType === 'cash' && numReceivedCash > 0 ? numReceivedCash : undefined,
+      paymentType === 'cash' && numReceivedCash > 0 ? changeReturn : undefined
     );
 
     setRecentCompletedInvoice(invoice);
     setCart([]);
     setDiscountPercent(0);
+    setReceivedCash('');
     setSelectedCustomerId('');
     setPaymentType('cash');
   };
@@ -568,11 +582,11 @@ export const PosView: React.FC<PosViewProps> = ({
             <button
               type="button"
               onClick={() => setIsCameraModalOpen(true)}
-              className="flex items-center space-x-1.5 space-x-reverse bg-gradient-to-r from-amber-500 via-amber-600 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold transition shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer border border-amber-300/30"
+              className="flex items-center space-x-1.5 space-x-reverse bg-gradient-to-r from-amber-500 via-amber-600 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white px-3.5 py-2 rounded-2xl text-xs font-bold transition shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer border border-amber-300/30 shrink-0"
               title={lang === 'ku' ? 'خوێندنەوەی بارکۆد بە کامێرا' : 'Scan barcode using camera'}
             >
               <Camera className="w-4 h-4" />
-              <span>{lang === 'ku' ? 'سکێنەری کامێرا' : 'Camera Scanner'}</span>
+              <span>{lang === 'ku' ? 'سکێنەر' : 'Camera'}</span>
             </button>
           </div>
         </div>
@@ -1024,6 +1038,68 @@ export const PosView: React.FC<PosViewProps> = ({
             </div>
           </div>
 
+          {/* Cash Received and Change Return Section */}
+          {paymentType === 'cash' && (
+            <div className="pt-2 border-t border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-800">
+                  {lang === 'ku' ? 'پارەی وەرگیراو لە کڕیار:' : 'Cash Received:'}
+                </span>
+                <div className="relative w-36">
+                  <input
+                    type="number"
+                    min="0"
+                    value={receivedCash}
+                    onChange={(e) => setReceivedCash(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="0"
+                    className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 text-left focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Cash Presets */}
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                <button
+                  type="button"
+                  onClick={() => setReceivedCash(finalTotal)}
+                  className="px-2 py-0.5 bg-slate-200 hover:bg-emerald-100 text-slate-800 hover:text-emerald-900 rounded-lg text-[10px] font-bold transition cursor-pointer"
+                >
+                  {lang === 'ku' ? 'تەواو' : 'Exact'}
+                </button>
+                {[5000, 10000, 25000, 50000, 100000].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setReceivedCash(preset)}
+                    className="px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-mono font-bold transition cursor-pointer"
+                  >
+                    {preset.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Change Return Banner */}
+              {numReceivedCash > 0 && (
+                <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs font-bold transition ${
+                  numReceivedCash >= finalTotal
+                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                    : 'bg-rose-50 border-rose-300 text-rose-900'
+                }`}>
+                  <span>
+                    {numReceivedCash >= finalTotal
+                      ? (lang === 'ku' ? 'باقی (گەڕاوە بۆ کڕیار):' : 'Change Return:')
+                      : (lang === 'ku' ? 'پارەی کەمی هێناوە:' : 'Remaining Due:')}
+                  </span>
+                  <span className="font-mono text-sm font-extrabold">
+                    {numReceivedCash >= finalTotal
+                      ? formatCurrency(changeReturn, currency, exchangeRate)
+                      : formatCurrency(cashShortage, currency, exchangeRate)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action Buttons */}
           <button
             disabled={cart.length === 0}
@@ -1057,6 +1133,13 @@ export const PosView: React.FC<PosViewProps> = ({
               <p className="text-xs text-slate-500 mt-1 font-mono">
                 #{recentCompletedInvoice.invoiceNumber} • {formatCurrency(recentCompletedInvoice.totalAmount, currency, exchangeRate)}
               </p>
+
+              {recentCompletedInvoice.changeAmount !== undefined && recentCompletedInvoice.changeAmount >= 0 && (
+                <div className="mt-2.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 font-bold text-xs flex justify-between items-center">
+                  <span>{lang === 'ku' ? 'باقی (گەڕاوە بۆ کڕیار):' : 'Change Return:'}</span>
+                  <span className="font-mono text-sm font-extrabold">{formatCurrency(recentCompletedInvoice.changeAmount, currency, exchangeRate)}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -1212,6 +1295,138 @@ export const PosView: React.FC<PosViewProps> = ({
                 className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
               >
                 {getTranslation(lang, 'save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Payment / Debt Repayment Modal in POS */}
+      {isQuickPaymentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80">
+            <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
+              <div className="flex items-center space-x-2 space-x-reverse">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
+                  <DollarSign className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-sm">
+                    {lang === 'ku' ? 'دانەوە و وەرگرتنی پارەی قەرز' : 'Debt Payment Collection'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {lang === 'ku' ? 'تۆمارکردنی پارەی وەرگیراو لە کڕیار' : 'Record received debt payment'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsQuickPaymentModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 bg-white/60 hover:bg-white rounded-xl cursor-pointer transition border border-slate-200/50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {/* Customer Select */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {lang === 'ku' ? 'هەڵبژاردنی کڕیار:' : 'Select Customer:'}
+                </label>
+                <select
+                  value={payCustomerId}
+                  onChange={(e) => setPayCustomerId(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">-- {lang === 'ku' ? 'کڕیارێک هەڵبژێرە' : 'Select Customer'} --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.phone}) - {lang === 'ku' ? 'قەرز' : 'Debt'}: {formatCurrency(c.debtBalance, currency, exchangeRate)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Selected Customer Current Balance */}
+              {payCustomerId && (
+                <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-2xl flex items-center justify-between text-amber-900 font-bold">
+                  <span>{lang === 'ku' ? 'کۆی قەرزی هەنووکەیی:' : 'Current Debt Balance:'}</span>
+                  <span className="font-mono text-sm text-amber-700">
+                    {formatCurrency(
+                      customers.find((c) => c.id === payCustomerId)?.debtBalance || 0,
+                      currency,
+                      exchangeRate
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Payment Amount */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {lang === 'ku' ? 'بڕی پارەی وەرگیراو:' : 'Payment Amount:'}
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={payAmount}
+                  onChange={(e) => setPayAmount(Number(e.target.value) || '')}
+                  placeholder={lang === 'ku' ? 'بڕی پارە بە د.ع بنووسە' : 'Enter payment amount'}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Note */}
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {lang === 'ku' ? 'تێبینی / ژمارەی وەصڵ (ئارەزوومەندانه):' : 'Note (Optional):'}
+                </label>
+                <input
+                  type="text"
+                  value={payNote}
+                  onChange={(e) => setPayNote(e.target.value)}
+                  placeholder={lang === 'ku' ? 'نموونە: وەرگرتنی قەرزی مانگی ڕابردوو' : 'Note or receipt reference'}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="pt-3 border-t border-slate-200/60 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsQuickPaymentModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                {getTranslation(lang, 'cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!payCustomerId) {
+                    alert(lang === 'ku' ? 'تکایە کڕیارێک هەڵبژێرە' : 'Please select a customer');
+                    return;
+                  }
+                  if (!payAmount || Number(payAmount) <= 0) {
+                    alert(lang === 'ku' ? 'تکایە بڕی پارەی دروست بنووسە' : 'Please enter a valid amount');
+                    return;
+                  }
+                  if (onRecordPayment) {
+                    onRecordPayment(payCustomerId, Number(payAmount), payNote);
+                    showScanToast(
+                      lang === 'ku' ? 'پارەی وەرگیراو بە سەرکەوتوویی تۆمارکرا!' : 'Payment recorded successfully!',
+                      'success'
+                    );
+                  }
+                  setIsQuickPaymentModalOpen(false);
+                  setPayCustomerId('');
+                  setPayAmount('');
+                  setPayNote('');
+                }}
+                className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer"
+              >
+                {lang === 'ku' ? 'تۆمارکردنی پارە' : 'Record Payment'}
               </button>
             </div>
           </div>
