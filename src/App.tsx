@@ -180,11 +180,11 @@ export default function App() {
         setShowSaveToast(false);
       }, 4000);
     } catch (err: any) {
-      console.error('Error saving data to Supabase:', err);
+      console.error('Error saving data on local device:', err);
       alert(
         lang === 'ku'
-          ? `هەڵە لە پاراستنی داتاکان لە داتابەیس: ${err?.message || 'تکایە هێڵی ئینتەرنێتەکەت بپشکنە'}`
-          : `Error saving data to database: ${err?.message || 'Please check your internet connection'}`
+          ? `هەڵە لە پاراستنی داتاکان لە ئامێرەکەدا: ${err?.message || ''}`
+          : `Error saving data on local device: ${err?.message || ''}`
       );
     } finally {
       setIsSyncing(false);
@@ -324,8 +324,8 @@ export default function App() {
             } catch (err: any) {
               alert(
                 lang === 'ku'
-                  ? `داتاکان لەپەرگە هێنران بەڵام لە سۆپابەیس خەزن نەبوون: ${err?.message || ''}`
-                  : `Data restored locally but failed to save to Supabase: ${err?.message || ''}`
+                  ? `هەڵە لە گەڕاندنەوەی داتاکان بۆ سەر ئامێرەکە: ${err?.message || ''}`
+                  : `Error saving restored data to local device: ${err?.message || ''}`
               );
             } finally {
               setIsSyncing(false);

@@ -142,6 +142,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               </>
             )}
 
+            {/* Offline/Independent PWA Indicator Badge */}
+            <div
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold shadow-inner"
+              title={lang === 'ku' ? 'ئەم بەرنامەیە بەتەواوی سەربەخۆیە و داتای لەگەڵ هیچ ئامێرێکی تردا نابەسترێتەوە (Offline PWA)' : '100% Independent Local PWA Storage'}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>{lang === 'ku' ? 'ئامێری سەربەخۆ (PWA)' : 'Local PWA'}</span>
+            </div>
+
             {/* Currency Switcher */}
             <button
               onClick={() => setCurrency(currency === 'IQD' ? 'USD' : 'IQD')}

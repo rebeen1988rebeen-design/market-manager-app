@@ -147,6 +147,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 ? 'بە کلیک لەسەر "خەزنکردنی گشتی"، گشت بەرهەم، فرۆشتن، کڕیار و دابینکەرەکان ئۆتۆماتیکی پاشەکەوت دەبن و فایلی یەدەگی JSON دادەبەزێت بۆ بەکارهێنان لە هەر ئامێرێکدا.'
                 : 'Save all market records to local storage & download a full JSON backup file.'}
             </p>
+            <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] font-medium leading-relaxed">
+              <span className="font-bold block mb-0.5">
+                {lang === 'ku' ? '⚡ سیستەمی ئامێری سەربەخۆ (Offline PWA):' : '⚡ Independent Offline PWA Device:'}
+              </span>
+              {lang === 'ku'
+                ? 'ئەم بەرنامەیە لەسەر هەر ئامێرێک (مۆبایل، تابلێت، کۆمپیوتەر) بەتەواوی سەربەخۆیە و داتاکان لە ناوخۆی ئامێرەکەدا هەڵدەگیرێن. هیچ کات داتای ئامێرەکان بەیەکەوە نابەسترێتەوە یان تێکەڵ نابێت.'
+                : 'This app runs 100% independently on each device using offline local storage. Devices are never connected or synced with each other.'}
+            </div>
 
             <div className="flex flex-wrap items-center gap-2 pt-1">
               {onExportBackup && (
