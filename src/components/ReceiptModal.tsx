@@ -135,10 +135,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           window.matchMedia('(display-mode: standalone)').matches);
 
       if (isStandalone) {
-        // In iOS PWA standalone mode, window.print() is disabled by Safari.
-        // Export PDF with Web Share API so native Share Sheet opens with Print option!
-        await handleExportPDF();
-        return;
+        // In PWA standalone mode, attempt PDF export/share first
+        try {
+          await handleExportPDF();
+          setIsPrinting(false);
+          return;
+        } catch (shareErr) {
+          console.warn('Share/PDF export failed in PWA, falling back to print window:', shareErr);
+        }
       }
 
       if (typeof window !== 'undefined' && window.print) {
@@ -147,16 +151,40 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         await handleExportPDF();
       }
     } catch (e) {
-      console.error('Print failed, falling back to PDF:', e);
-      await handleExportPDF();
+      console.error('Print failed, opening print window fallback:', e);
+      if (receiptRef.current) {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(`
+            <html dir="rtl">
+              <head>
+                <title>Receipt #${invoice.invoiceNumber}</title>
+                <style>
+                  body { font-family: Tahoma, Arial, sans-serif; padding: 20px; direction: rtl; background: #fff; color: #000; }
+                  .receipt { width: 320px; margin: 0 auto; }
+                </style>
+              </head>
+              <body>
+                <div class="receipt">
+                  ${receiptRef.current.innerHTML}
+                </div>
+                <script>
+                  window.onload = function() { window.print(); };
+                </script>
+              </body>
+            </html>
+          `);
+          printWindow.document.close();
+        }
+      }
     } finally {
       setIsPrinting(false);
     }
   };
 
   return (
-    <div className="printable-receipt-parent fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="printable-receipt-parent liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[90vh] flex flex-col">
+    <div className="printable-receipt-parent fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+      <div className="printable-receipt-parent liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[85vh] flex flex-col overflow-y-auto">
         
         {/* Actions bar (hidden during print) */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 print:hidden">

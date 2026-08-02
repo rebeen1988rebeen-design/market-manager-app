@@ -415,8 +415,8 @@ export const DebtsView: React.FC<DebtsViewProps> = ({
 
       {/* Modal: Add Customer */}
       {isAddCustomerOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
               <div className="flex items-center space-x-2.5 space-x-reverse">
                 <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
@@ -498,8 +498,8 @@ export const DebtsView: React.FC<DebtsViewProps> = ({
 
       {/* Modal: Record Payment */}
       {paymentCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="liquid-glass rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-white/80">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+          <div className="liquid-glass rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[85vh] overflow-y-auto">
             <div className="text-center space-y-1">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
                 <DollarSign className="w-6 h-6" />
@@ -561,8 +561,8 @@ export const DebtsView: React.FC<DebtsViewProps> = ({
 
       {/* Modal: Edit Customer */}
       {editingCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+          <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200/60 pb-3">
               <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2 space-x-reverse">
                 <Edit3 className="w-5 h-5 text-emerald-600" />
@@ -646,8 +646,8 @@ export const DebtsView: React.FC<DebtsViewProps> = ({
 
       {/* Modal: Delete Customer Confirmation */}
       {deletingCustomer && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="liquid-glass rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-white/80 text-center">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+          <div className="liquid-glass rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-white/80 text-center max-h-[85vh] overflow-y-auto">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
               <Trash2 className="w-6 h-6" />
             </div>

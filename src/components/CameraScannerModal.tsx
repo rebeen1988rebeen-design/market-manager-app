@@ -103,8 +103,8 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 flex flex-col items-center">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xl flex items-center justify-center p-4 pt-20 sm:pt-4">
+      <div className="liquid-glass rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-white/80 flex flex-col items-center max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between w-full border-b border-slate-200/60 pb-3">
           <div className="flex items-center space-x-2 space-x-reverse">
             <div className="w-9 h-9 rounded-2xl bg-amber-500/20 text-amber-600 flex items-center justify-center">
